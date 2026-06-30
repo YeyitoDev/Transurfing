@@ -177,6 +177,22 @@ export const api = {
 	interpretarCanvas: (tareaId: string, modelo?: string) =>
 		req<CanvasInterpretacion>(`/tareas/${tareaId}/canvas/interpretar`, 'POST', { modelo }),
 
+	scrumQuickWins: (tareaId: string, modelo?: string) =>
+		req<{
+			ok: boolean;
+			analisis: string;
+			quick_wins: {
+				titulo: string;
+				justificacion: string;
+				impacto: 'alto' | 'medio' | 'bajo';
+				esfuerzo: 'alto' | 'medio' | 'bajo';
+				subtarea_id: string;
+			}[];
+			recomendaciones: string[];
+			riesgos: string[];
+			error?: string;
+		}>(`/tareas/${tareaId}/scrum`, 'POST', { modelo }),
+
 	listarRecordatorios: () => req<Recordatorio[]>('/recordatorios'),
 	crearRecordatorio: (data: { titulo: string; fecha_hora: string; tarea_id: string; subtarea_id: string | null }) =>
 		req<Recordatorio>('/recordatorios', 'POST', data),

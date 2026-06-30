@@ -283,6 +283,20 @@ async def interpretar_canvas(tarea_id: str, data: CanvasInterpretarRequest):
     return res
 
 
+class ScrumQuickWinsRequest(BaseModel):
+    modelo: Optional[str] = None
+
+
+@app.post("/api/tareas/{tarea_id}/scrum")
+async def scrum_quick_wins(tarea_id: str, data: ScrumQuickWinsRequest):
+    """Agente Scrum + Project Manager: recomienda quick wins hacia el objetivo."""
+    t = storage.obtener_tarea(tarea_id)
+    if not t:
+        raise HTTPException(404, "Tarea no encontrada")
+    import scrum_agent_service
+    return await scrum_agent_service.analizar_quick_wins(t, data.modelo)
+
+
 @app.post("/api/tareas", status_code=201)
 def crear_tarea(data: TareaCreate):
     t = storage.crear_tarea(

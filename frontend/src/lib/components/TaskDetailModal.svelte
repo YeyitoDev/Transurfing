@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X, Bell, Pencil, Trash2, Calendar, Clock, Repeat, CheckSquare, Plus, Sparkles, FileText, Loader2, Heart, Rocket, TrendingUp, Target, Users, Bot, GitCommit, RefreshCw, UploadCloud, AlertCircle, Workflow, ChevronDown, Network, Play, Terminal, Github } from 'lucide-svelte';
+	import { X, Bell, Pencil, Trash2, Calendar, Clock, Repeat, CheckSquare, Plus, Sparkles, FileText, Loader2, Heart, Rocket, TrendingUp, Target, Users, Bot, GitCommit, RefreshCw, UploadCloud, AlertCircle, Workflow, ChevronDown, Network, Play, Terminal, Github, GripVertical, Zap, ClipboardList } from 'lucide-svelte';
 	import { marked } from 'marked';
 	import { api } from '../api';
 	import { onTaskChange } from '../stores';
@@ -48,6 +48,105 @@
 	let githubOpen = $state(false);
 	let ejecutandoCodigo = $state<string | null>(null);
 	let resultadoCodigo = $state<Record<string, { ok: boolean; lenguaje?: string; returncode?: number | null; stdout?: string; stderr?: string; error?: string }>>({});
+
+	// --- Kanban de subtareas (4 columnas) ---
+	type ColId = 'futuras' | 'pendientes' | 'en_progreso' | 'resueltas';
+	const KANBAN_COLS: { id: ColId; label: string; dot: string }[] = [
+		{ id: 'futuras', label: 'Futuras', dot: 'bg-slate-400' },
+		{ id: 'pendientes', label: 'Pendientes', dot: 'bg-zinc-400' },
+		{ id: 'en_progreso', label: 'En progreso', dot: 'bg-blue-400' },
+		{ id: 'resueltas', label: 'Resueltas', dot: 'bg-green-400' }
+	];
+	let dragSubId = $state<string | null>(null);
+	let dragOverCol = $state<ColId | null>(null);
+
+	function colDe(sub: Subtarea): ColId {
+		if (sub.completada || sub.estado === 'completada') return 'resueltas';
+		if (sub.estado === 'en_progreso') return 'en_progreso';
+		if (sub.estado === 'bloqueada') return 'futuras';
+		return 'pendientes';
+	}
+
+	let grupos = $derived.by(() => {
+		const g: Record<ColId, Subtarea[]> = { futuras: [], pendientes: [], en_progreso: [], resueltas: [] };
+		for (const s of tarea?.subtareas || []) g[colDe(s)].push(s);
+		return g;
+	});
+
+	async function moverSub(sub: Subtarea, destino: ColId) {
+		if (!tarea || colDe(sub) === destino) return;
+		const completada = destino === 'resueltas';
+		const estado: Subtarea['estado'] =
+			destino === 'resueltas' ? 'completada' : destino === 'en_progreso' ? 'en_progreso' : destino === 'futuras' ? 'bloqueada' : 'pendiente';
+		const optimisticSubs = tarea.subtareas.map((s) => (s.id === sub.id ? { ...s, completada, estado } : s));
+		const completadas = optimisticSubs.filter((s) => s.completada || s.estado === 'completada').length;
+		const total = optimisticSubs.length;
+		const progreso = total > 0 ? Math.round((completadas / total) * 100 * 10) / 10 : tarea.completada_manual ? 100 : 0;
+		const estadoTarea = total > 0 && completadas === total ? 'completada' : 'pendiente';
+		onTaskChange({ ...tarea, subtareas: optimisticSubs, subtareas_completadas: completadas, subtareas_total: total, progreso, estado: estadoTarea } as Tarea);
+		try {
+			const t = await api.actualizarSubtarea(sub.id, { completada, estado });
+			onTaskChange(t);
+		} catch {
+			onTaskChange(tarea);
+		}
+	}
+
+	function soltarEn(destino: ColId) {
+		dragOverCol = null;
+		const id = dragSubId;
+		dragSubId = null;
+		if (!id || !tarea) return;
+		const sub = tarea.subtareas.find((s) => s.id === id);
+		if (sub) moverSub(sub, destino);
+	}
+
+	// --- Agente Scrum / Project Manager ---
+	type QuickWin = { titulo: string; justificacion: string; impacto: 'alto' | 'medio' | 'bajo'; esfuerzo: 'alto' | 'medio' | 'bajo'; subtarea_id: string };
+	type ScrumData = { ok: boolean; analisis: string; quick_wins: QuickWin[]; recomendaciones: string[]; riesgos: string[]; error?: string };
+	let scrum = $state<ScrumData | null>(null);
+	let scrumLoading = $state(false);
+	let creandoQuickWin = $state<string | null>(null);
+
+	const NIVEL_CLS: Record<string, string> = {
+		alto: 'text-green-400 bg-green-500/10 border-green-500/20',
+		medio: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+		bajo: 'text-slate-400 bg-slate-500/10 border-slate-500/20'
+	};
+	const ESFUERZO_CLS: Record<string, string> = {
+		bajo: 'text-green-400 bg-green-500/10 border-green-500/20',
+		medio: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+		alto: 'text-red-400 bg-red-500/10 border-red-500/20'
+	};
+
+	async function analizarScrum() {
+		if (!tarea) return;
+		scrumLoading = true;
+		try {
+			scrum = await api.scrumQuickWins(tarea.id);
+		} catch (e: any) {
+			scrum = { ok: false, analisis: '', quick_wins: [], recomendaciones: [], riesgos: [], error: e?.message || 'Error de conexión' };
+		} finally {
+			scrumLoading = false;
+		}
+	}
+
+	async function crearQuickWin(qw: QuickWin) {
+		if (!tarea) return;
+		creandoQuickWin = qw.titulo;
+		try {
+			const t = await api.agregarSubtarea(tarea.id, qw.titulo, { descripcion: qw.justificacion, estado: 'pendiente' });
+			onTaskChange(t);
+		} catch (e) {
+			console.error(e);
+		} finally {
+			creandoQuickWin = null;
+		}
+	}
+
+	function tituloSub(id: string): string {
+		return tarea?.subtareas.find((s) => s.id === id)?.titulo || '';
+	}
 
 	const PIPELINE_PASOS: { id: string; label: string }[] = [
 		{ id: 'planificando', label: 'Planifica' },
@@ -542,35 +641,80 @@
 					</div>
 				{/if}
 
-				<div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-4 min-h-[420px]">
-					<div class="flex flex-col gap-4">
-						<div class="bg-card2 border border-border rounded-xl p-3">
-							<div class="text-xs font-semibold text-text mb-2 flex items-center justify-between gap-1.5">
-								<div class="flex items-center gap-1.5">
-									<CheckSquare size={14} /> Subtareas
-								</div>
-								<div class="flex items-center gap-1">
-									<button onclick={ejecutarTodasSubtareas} disabled={ejecutandoTodas} class="p-1.5 rounded-md text-muted hover:text-indigo-400 hover:bg-indigo-500/10 disabled:opacity-50" title="Ejecutar todas con agentes">
-										{#if ejecutandoTodas}<Loader2 size={12} class="animate-spin" />{:else}<Bot size={12} />{/if}
-									</button>
-									<button onclick={sincronizarSubs} disabled={sincronizando} class="p-1.5 rounded-md text-muted hover:text-indigo-400 hover:bg-indigo-500/10 disabled:opacity-50" title="Sincronizar commits pendientes">
-										{#if sincronizando}<Loader2 size={12} class="animate-spin" />{:else}<RefreshCw size={12} />{/if}
-									</button>
-								</div>
+				<div class="bg-card2 border border-border rounded-xl p-3 mb-4">
+					<div class="flex items-center justify-between gap-2 mb-2">
+						<div class="text-xs font-semibold text-text flex items-center gap-1.5">
+							<Zap size={14} class="text-amber-400" /> Scrum &amp; Project Manager
+						</div>
+						<button onclick={analizarScrum} disabled={scrumLoading} class="text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 rounded-lg px-2.5 py-1.5 flex items-center gap-1 hover:bg-amber-500/25 disabled:opacity-50">
+							{#if scrumLoading}<Loader2 size={10} class="animate-spin" />{:else}<Zap size={10} />{/if}
+							{scrumLoading ? 'Analizando…' : 'Analizar quick wins'}
+						</button>
+					</div>
+					{#if !scrum && !scrumLoading}
+						<p class="text-[11px] text-muted">Un agente Scrum + Project Manager revisa tu <b>objetivo</b> y tu backlog y te indica los <b>quick wins</b> de mayor impacto y menor esfuerzo para avanzar ya.</p>
+					{/if}
+					{#if scrumLoading && !scrum}
+						<p class="text-[11px] text-muted flex items-center gap-1.5"><Loader2 size={12} class="animate-spin" /> Priorizando por impacto/esfuerzo hacia tu objetivo…</p>
+					{/if}
+					{#if scrum}
+						{#if scrum.error}<div class="text-[11px] text-red-400 mb-2">{scrum.error}</div>{/if}
+						{#if scrum.analisis}<div class="text-xs text-text bg-bg border border-border rounded-lg p-2.5 mb-2">{scrum.analisis}</div>{/if}
+						{#if scrum.quick_wins.length}
+							<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+								{#each scrum.quick_wins as qw, i (i)}
+									<div class="bg-bg border border-border rounded-lg p-2.5 flex flex-col gap-1.5">
+										<div class="flex items-start gap-2">
+											<span class="text-[11px] font-bold text-amber-400 mt-0.5">{i + 1}</span>
+											<div class="text-xs font-semibold text-text flex-1">{qw.titulo}</div>
+										</div>
+										{#if qw.justificacion}<div class="text-[11px] text-muted">{qw.justificacion}</div>{/if}
+										<div class="flex items-center gap-1.5 flex-wrap">
+											<span class="text-[9px] px-1.5 py-0.5 rounded border {NIVEL_CLS[qw.impacto]}">Impacto {qw.impacto}</span>
+											<span class="text-[9px] px-1.5 py-0.5 rounded border {ESFUERZO_CLS[qw.esfuerzo]}">Esfuerzo {qw.esfuerzo}</span>
+											{#if qw.subtarea_id}
+												<span class="text-[9px] px-1.5 py-0.5 rounded border bg-indigo-500/10 text-indigo-300 border-indigo-500/20 truncate max-w-[150px]" title={tituloSub(qw.subtarea_id)}>Ya en backlog</span>
+											{:else}
+												<button onclick={() => crearQuickWin(qw)} disabled={creandoQuickWin === qw.titulo} class="ml-auto text-[9px] bg-accent text-white rounded px-2 py-0.5 flex items-center gap-1 disabled:opacity-50">
+													{#if creandoQuickWin === qw.titulo}<Loader2 size={9} class="animate-spin" />{:else}<Plus size={9} />{/if} Crear subtarea
+												</button>
+											{/if}
+										</div>
+									</div>
+								{/each}
 							</div>
-							{#if mensajeError}
-								<div class="mb-2 text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 flex items-start gap-2">
-									<AlertCircle size={14} class="shrink-0 mt-0.5" />
-									<span>{mensajeError}</span>
-								</div>
-							{/if}
-							{#if tarea.subtareas.length === 0}
-								<p class="text-[11px] text-muted">No hay subtareas.</p>
-							{:else}
-								<div class="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
-									{#each tarea.subtareas as sub}
+						{/if}
+						{#if scrum.recomendaciones.length}
+							<div class="mb-2">
+								<div class="text-[10px] font-semibold text-text flex items-center gap-1 mb-1"><ClipboardList size={12} class="text-accent" /> Recomendaciones del PM</div>
+								<ul class="space-y-1">
+									{#each scrum.recomendaciones as r}<li class="text-[11px] text-muted flex gap-1.5"><span class="text-accent shrink-0">·</span><span>{r}</span></li>{/each}
+								</ul>
+							</div>
+						{/if}
+						{#if scrum.riesgos.length}
+							<div>
+								<div class="text-[10px] font-semibold text-text flex items-center gap-1 mb-1"><AlertCircle size={12} class="text-red-400" /> Riesgos</div>
+								<ul class="space-y-1">
+									{#each scrum.riesgos as r}<li class="text-[11px] text-red-300/90 flex gap-1.5"><span class="shrink-0">·</span><span>{r}</span></li>{/each}
+								</ul>
+							</div>
+						{/if}
+					{/if}
+				</div>
+
+				{#snippet subtareaCard(sub: Subtarea)}
 										<div class="rounded-lg bg-bg border border-border overflow-hidden {sub.completada ? 'opacity-60' : ''}">
 											<div class="flex items-center gap-2 p-2">
+												<span
+													class="cursor-grab active:cursor-grabbing text-muted/40 hover:text-muted shrink-0"
+													draggable={true}
+													ondragstart={(e) => { dragSubId = sub.id; e.dataTransfer?.setData('text/plain', sub.id); }}
+													ondragend={() => { dragSubId = null; dragOverCol = null; }}
+													title="Arrastra para mover de columna"
+												>
+													<GripVertical size={14} />
+												</span>
 												<button onclick={() => toggleSub(sub)} class="w-5 h-5 min-w-5 rounded-md border-2 flex items-center justify-center text-[10px] {sub.completada ? 'bg-green border-green text-white' : 'border-border hover:border-accent'}">
 													{#if sub.completada}✓{/if}
 												</button>
@@ -777,35 +921,82 @@
 												</div>
 											{/if}
 										</div>
-									{/each}
-								</div>
-							{/if}
-							<div class="space-y-2 mt-3 pt-3 border-t border-border">
-								<div class="flex gap-2">
-									<input class="flex-1 bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder-muted" placeholder="Nueva subtarea… (Enter para añadir)" bind:value={nuevaSub} onkeydown={(e) => e.key === 'Enter' && addSub()} />
-									<button onclick={addSub} disabled={loading || !nuevaSub.trim()} class="bg-accent text-white rounded-lg px-3 text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1">
-										{#if loading}<Loader2 size={14} class="animate-spin" />{:else}<Plus size={16} />{/if}
-										<span class="hidden sm:inline">Añadir</span>
-									</button>
-								</div>
-								<button onclick={() => (addAvanzado = !addAvanzado)} class="text-[11px] text-muted hover:text-text flex items-center gap-1">
-									<ChevronDown size={12} class="transition-transform {addAvanzado ? 'rotate-180' : ''}" /> {addAvanzado ? 'Menos opciones' : 'Más opciones'}
-								</button>
-								{#if addAvanzado}
-								<textarea rows={2} class="w-full bg-bg border border-border rounded-lg px-3 py-2 text-xs text-text placeholder-muted resize-none" placeholder="Descripción (opcional)" bind:value={nuevaSubDesc}></textarea>
-																<textarea rows={3} class="w-full bg-bg border border-border rounded-lg px-3 py-2 text-xs text-text placeholder-muted resize-none font-mono" placeholder="Prompt detallado para el agente (opcional)" bind:value={nuevaSubPrompt}></textarea>
-																<input class="w-full bg-bg border border-border rounded-lg px-3 py-2 text-xs text-text placeholder-muted" placeholder="Archivo destino en repo (opcional)" bind:value={nuevaSubArchivo} />
-									<select class="w-full bg-bg border border-border rounded-lg px-2 py-2 text-xs text-text" bind:value={nuevaSubEstado}>
-										<option value="pendiente">Pendiente</option>
-										<option value="en_progreso">En progreso</option>
-										<option value="bloqueada">Bloqueada</option>
-										<option value="completada">Completada</option>
-									</select>
-								{/if}
-							</div>
+				{/snippet}
+
+				<div class="bg-card2 border border-border rounded-xl p-3 mb-4">
+					<div class="text-xs font-semibold text-text mb-2 flex items-center justify-between gap-1.5">
+						<div class="flex items-center gap-1.5">
+							<CheckSquare size={14} /> Subtareas
+						</div>
+						<div class="flex items-center gap-1">
+							<button onclick={ejecutarTodasSubtareas} disabled={ejecutandoTodas} class="p-1.5 rounded-md text-muted hover:text-indigo-400 hover:bg-indigo-500/10 disabled:opacity-50" title="Ejecutar todas con agentes">
+								{#if ejecutandoTodas}<Loader2 size={12} class="animate-spin" />{:else}<Bot size={12} />{/if}
+							</button>
+							<button onclick={sincronizarSubs} disabled={sincronizando} class="p-1.5 rounded-md text-muted hover:text-indigo-400 hover:bg-indigo-500/10 disabled:opacity-50" title="Sincronizar commits pendientes">
+								{#if sincronizando}<Loader2 size={12} class="animate-spin" />{:else}<RefreshCw size={12} />{/if}
+							</button>
 						</div>
 					</div>
+					{#if mensajeError}
+						<div class="mb-2 text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 flex items-start gap-2">
+							<AlertCircle size={14} class="shrink-0 mt-0.5" />
+							<span>{mensajeError}</span>
+						</div>
+					{/if}
+					{#if (tarea.subtareas || []).length === 0}
+						<p class="text-[11px] text-muted">No hay subtareas. Añade una abajo o pide quick wins al agente Scrum.</p>
+					{:else}
+						<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5">
+							{#each KANBAN_COLS as col (col.id)}
+								<div
+									ondragover={(e) => { e.preventDefault(); dragOverCol = col.id; }}
+									ondragleave={() => { if (dragOverCol === col.id) dragOverCol = null; }}
+									ondrop={(e) => { e.preventDefault(); soltarEn(col.id); }}
+									class="rounded-xl border p-2 flex flex-col gap-2 transition-colors {dragOverCol === col.id ? 'border-accent bg-accent/5' : 'border-border bg-bg/40'}"
+								>
+									<div class="flex items-center gap-1.5 px-1">
+										<span class="w-2 h-2 rounded-full {col.dot}"></span>
+										<span class="text-[11px] font-semibold text-text">{col.label}</span>
+										<span class="text-[10px] text-muted ml-auto">{grupos[col.id].length}</span>
+									</div>
+									<div class="space-y-2 min-h-[40px]">
+										{#each grupos[col.id] as sub (sub.id)}
+											{@render subtareaCard(sub)}
+										{/each}
+										{#if grupos[col.id].length === 0}
+											<div class="text-[10px] text-muted/50 text-center py-4 border border-dashed border-border rounded-lg">Suelta aquí</div>
+										{/if}
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+					<div class="space-y-2 mt-3 pt-3 border-t border-border">
+						<div class="flex gap-2">
+							<input class="flex-1 bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder-muted" placeholder="Nueva subtarea… (Enter para añadir)" bind:value={nuevaSub} onkeydown={(e) => e.key === 'Enter' && addSub()} />
+							<button onclick={addSub} disabled={loading || !nuevaSub.trim()} class="bg-accent text-white rounded-lg px-3 text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1">
+								{#if loading}<Loader2 size={14} class="animate-spin" />{:else}<Plus size={16} />{/if}
+								<span class="hidden sm:inline">Añadir</span>
+							</button>
+						</div>
+						<button onclick={() => (addAvanzado = !addAvanzado)} class="text-[11px] text-muted hover:text-text flex items-center gap-1">
+							<ChevronDown size={12} class="transition-transform {addAvanzado ? 'rotate-180' : ''}" /> {addAvanzado ? 'Menos opciones' : 'Más opciones'}
+						</button>
+						{#if addAvanzado}
+							<textarea rows={2} class="w-full bg-bg border border-border rounded-lg px-3 py-2 text-xs text-text placeholder-muted resize-none" placeholder="Descripción (opcional)" bind:value={nuevaSubDesc}></textarea>
+							<textarea rows={3} class="w-full bg-bg border border-border rounded-lg px-3 py-2 text-xs text-text placeholder-muted resize-none font-mono" placeholder="Prompt detallado para el agente (opcional)" bind:value={nuevaSubPrompt}></textarea>
+							<input class="w-full bg-bg border border-border rounded-lg px-3 py-2 text-xs text-text placeholder-muted" placeholder="Archivo destino en repo (opcional)" bind:value={nuevaSubArchivo} />
+							<select class="w-full bg-bg border border-border rounded-lg px-2 py-2 text-xs text-text" bind:value={nuevaSubEstado}>
+								<option value="pendiente">Pendiente</option>
+								<option value="en_progreso">En progreso</option>
+								<option value="bloqueada">Bloqueada</option>
+								<option value="completada">Completada</option>
+							</select>
+						{/if}
+					</div>
+				</div>
 
+				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 min-h-[420px]">
 					<div>
 						<ChatPanel {tarea} />
 					</div>
