@@ -58,6 +58,7 @@ cp /Users/sergio/Desktop/PERSONAL-AGENT/tareas_app/.env.example /Users/sergio/De
 Edita `/Users/sergio/Desktop/PERSONAL-AGENT/.env` con al menos:
 
 - `OPENAI_API_KEY` y `OPENAI_BASE_URL` (para agentes, chat, voz y resúmenes).
+- `LLM_MODEL` (modelo por defecto). Opcional `LLM_MODELS` (lista separada por comas) para **curar** los modelos del selector. Si no defines `LLM_MODELS`, el selector **autodescubre** los modelos del gateway en `{OPENAI_BASE_URL}/models` (p.ej. OpenCode Zen). `GROQ_API_KEY` + `GROQ_LLM_MODEL` añaden Groq como proveedor alterno; el chat de cada tarea enruta al proveedor según el modelo elegido.
 - `GITHUB_CLIENT_ID` y `GITHUB_CLIENT_SECRET` (opcional, para GitHub).
 - `TELEGRAM_BOT_TOKEN`, `WEBHOOK_URL`, etc. (opcional, para el bot).
 - Reemplaza `<tu-app>` por el nombre que vas a usar en `fly.toml`.
