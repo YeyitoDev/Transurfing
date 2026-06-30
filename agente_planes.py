@@ -552,6 +552,45 @@ async def resumen_tarea(tarea: Dict[str, Any]) -> str:
         return "No pude generar el resumen en este momento."
 
 
+async def mejorar_descripcion(tarea: Dict[str, Any]) -> str:
+    """Genera una descripción mejorada y clara del proyecto/tarea usando LLM."""
+    if _usar_groq_llm():
+        cliente = _obtener_cliente_groq()
+        modelo = _modelo_groq_valido(os.getenv("GROQ_LLM_MODEL", "llama-3.3-70b-versatile"))
+    else:
+        cliente = _obtener_cliente()
+        modelo = os.getenv("LLM_MODEL", "qwen3.5-plus")
+
+    subtareas = [s["titulo"] for s in tarea.get("subtareas", [])]
+    subtareas_text = "\n".join(f"- {s}" for s in subtareas) if subtareas else "Sin subtareas."
+
+    prompt = (
+        "Mejora y enriquece la descripción de este proyecto/tarea para que sea clara y motivadora.\n"
+        f"Título: {tarea['titulo']}\n"
+        f"Descripción actual: {tarea.get('descripcion', '') or 'Ninguna'}\n"
+        f"Objetivo/área: {tarea.get('objetivo', '') or 'no especificado'}\n"
+        f"Etiqueta: {tarea.get('etiqueta', 'tarea')}\n"
+        f"Subtareas:\n{subtareas_text}\n\n"
+        "Devuelve SOLO la descripción mejorada (2-4 frases), sin títulos ni comentarios meta. "
+        "Explica qué es, su propósito y el resultado esperado. Español, tono claro y profesional."
+    )
+
+    try:
+        response = await cliente.chat.completions.create(
+            model=modelo,
+            messages=[
+                {"role": "system", "content": "Eres un redactor experto en describir proyectos de forma clara y concisa."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.6,
+            max_tokens=400,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as exc:
+        logger.exception("Error mejorando descripción: %s", exc)
+        return ""
+
+
 async def buscar_novedades(tema: str) -> Dict[str, Any]:
     """Busca novedades relevantes para un tema de investigación usando LLM."""
     if _usar_groq_llm():

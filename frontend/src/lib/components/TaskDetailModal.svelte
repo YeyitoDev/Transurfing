@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X, Bell, Pencil, Trash2, Calendar, Clock, Repeat, CheckSquare, Plus, Sparkles, FileText, Loader2, Heart, Rocket, TrendingUp, Target, Users, Bot, GitCommit, RefreshCw, UploadCloud, AlertCircle, Workflow, ChevronDown } from 'lucide-svelte';
+	import { X, Bell, Pencil, Trash2, Calendar, Clock, Repeat, CheckSquare, Plus, Sparkles, FileText, Loader2, Heart, Rocket, TrendingUp, Target, Users, Bot, GitCommit, RefreshCw, UploadCloud, AlertCircle, Workflow, ChevronDown, Network } from 'lucide-svelte';
 	import { marked } from 'marked';
 	import { api } from '../api';
 	import { onTaskChange } from '../stores';
@@ -8,6 +8,7 @@
 	import ChatPanel from './ChatPanel.svelte';
 	import GitHubTaskPanel from './GitHubTaskPanel.svelte';
 	import VisualCanvas from './VisualCanvas.svelte';
+	import ProjectGraph from './ProjectGraph.svelte';
 	import type { Tarea, Subtarea } from '../types';
 
 	const ETIQUETA_LABEL: Record<string, string> = {
@@ -42,6 +43,8 @@
 	let instruccionesIterar = $state<Record<string, string>>({});
 	let verHistorial = $state<string | null>(null);
 	let visualCanvasOpen = $state(false);
+	let mostrarGrafo = $state(false);
+	let mejorandoDesc = $state(false);
 
 	const PIPELINE_PASOS: { id: string; label: string }[] = [
 		{ id: 'planificando', label: 'Planifica' },
@@ -320,6 +323,20 @@
 		}
 	}
 
+	async function mejorarDescripcion() {
+		if (!tarea) return;
+		mejorandoDesc = true;
+		mensajeError = null;
+		try {
+			const res = await api.mejorarDescripcion(tarea.id);
+			onTaskChange(res.tarea);
+		} catch (e: any) {
+			mostrarError(e?.message || 'No se pudo mejorar la descripción');
+		} finally {
+			mejorandoDesc = false;
+		}
+	}
+
 	let done = $derived(tarea?.estado === 'completada');
 	let tieneInforme = $derived(!!tarea?.documento);
 	let esHabito = $derived(tarea?.etiqueta === 'habito' || tarea?.repetible);
@@ -372,6 +389,12 @@
 				<div class="text-sm font-semibold">Detalle de tarea</div>
 				<div class="flex items-center gap-2">
 					<button
+						onclick={() => (mostrarGrafo = !mostrarGrafo)}
+						class="flex items-center gap-1.5 text-[11px] font-medium bg-card2 hover:bg-accent/10 text-text hover:text-accent border border-border rounded-lg px-3 py-1.5 transition-colors {mostrarGrafo ? 'text-accent border-accent' : ''}"
+					>
+						<Network size={14} /> Estructura
+					</button>
+					<button
 						onclick={() => (visualCanvasOpen = true)}
 						class="flex items-center gap-1.5 text-[11px] font-medium bg-card2 hover:bg-accent/10 text-text hover:text-accent border border-border rounded-lg px-3 py-1.5 transition-colors"
 					>
@@ -396,6 +419,14 @@
 						{#if tarea.descripcion}
 							<p class="text-sm text-muted mt-1.5">{tarea.descripcion}</p>
 						{/if}
+						<button
+							onclick={mejorarDescripcion}
+							disabled={mejorandoDesc}
+							class="mt-1.5 text-[10px] text-accent hover:underline inline-flex items-center gap-1 disabled:opacity-50"
+						>
+							{#if mejorandoDesc}<Loader2 size={11} class="animate-spin" />{:else}<Sparkles size={11} />{/if}
+							{tarea.descripcion ? 'Mejorar descripción con IA' : 'Generar descripción con IA'}
+						</button>
 					</div>
 				</div>
 
@@ -433,6 +464,10 @@
 					<ProgressBar pct={tarea.progreso} />
 					<div class="text-[10px] text-muted mt-2">{tarea.subtareas_completadas} de {tarea.subtareas_total} subtareas completadas</div>
 				</div>
+
+				{#if mostrarGrafo}
+					<ProjectGraph {tarea} />
+				{/if}
 
 				{#if esHabito}
 					<div class="bg-pink-500/10 border border-pink-500/20 rounded-xl p-3 mb-4">

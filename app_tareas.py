@@ -919,6 +919,21 @@ async def resumen_tarea(data: ResumenTareaRequest):
         return {"resumen": "No pude generar el resumen en este momento."}
 
 
+@app.post("/api/tareas/{tarea_id}/mejorar-descripcion")
+async def mejorar_descripcion_endpoint(tarea_id: str):
+    """Mejora la descripción del proyecto/tarea con IA y la guarda."""
+    import agente_planes
+    tarea = storage.obtener_tarea(tarea_id)
+    if not tarea:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada")
+    nueva = await agente_planes.mejorar_descripcion(tarea)
+    if not nueva:
+        raise HTTPException(status_code=502, detail="No se pudo generar la descripción")
+    actualizada = storage.actualizar_tarea(tarea_id, descripcion=nueva)
+    notify_tareas()
+    return {"tarea": actualizada, "descripcion": nueva}
+
+
 # ---------------------------------------------------------------------------
 # Agentes especializados
 # ---------------------------------------------------------------------------

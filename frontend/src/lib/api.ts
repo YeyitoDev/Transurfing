@@ -96,6 +96,8 @@ export const api = {
 		}>
 	) => req<Tarea>(`/tareas/${id}`, 'PATCH', data),
 	eliminarTarea: (id: string) => req(`/tareas/${id}`, 'DELETE'),
+	mejorarDescripcion: (tareaId: string) =>
+		req<{ tarea: Tarea; descripcion: string }>(`/tareas/${tareaId}/mejorar-descripcion`, 'POST'),
 
 	agregarSubtarea: (
 		tareaId: string,
