@@ -247,7 +247,10 @@ export const api = {
 	agenteBuscar: (tema: string) => req<AgenteBuscarResultado>('/agente/buscar', 'POST', { tema }),
 	agenteIdea: (prompt: string) => req<AgenteIdeaResultado>('/agente/idea', 'POST', { prompt }),
 	resumenTarea: (id: string) => req<{ resumen: string }>('/agente/resumen-tarea', 'POST', { tarea_id: id }),
-	resumenDashboard: () => req<{ resumen: string; error?: string }>('/agente/resumen-dashboard'),
+	resumenDashboard: (etiqueta?: string) =>
+		req<{ resumen: string; error?: string }>(
+			`/agente/resumen-dashboard${etiqueta && etiqueta !== 'todas' ? `?etiqueta=${encodeURIComponent(etiqueta)}` : ''}`
+		),
 	crearChatSesion: (tareaId: string, nombre: string) =>
 		req<{ tarea: Tarea }>(`/tareas/${tareaId}/chat-sesiones`, 'POST', { tarea_id: tareaId, nombre }),
 	enviarChatMensaje: (

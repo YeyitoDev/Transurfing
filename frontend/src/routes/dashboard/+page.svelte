@@ -48,7 +48,24 @@
 		return racha;
 	}
 
-	let proyectos = $derived($tareasStore);
+	const CATEGORIAS = [
+		{ id: 'todas', label: 'Todos' },
+		{ id: 'emprendimiento', label: 'Emprendimientos' },
+		{ id: 'idea', label: 'Ideas' },
+		{ id: 'habito', label: 'Hábitos' },
+		{ id: 'investigacion', label: 'Investigación' },
+		{ id: 'tarea', label: 'Tareas' }
+	] as const;
+	let categoria = $state<string>('todas');
+	let conteos = $derived.by(() => {
+		const m: Record<string, number> = { todas: $tareasStore.length };
+		for (const t of $tareasStore) m[t.etiqueta] = (m[t.etiqueta] || 0) + 1;
+		return m;
+	});
+
+	let proyectos = $derived(
+		categoria === 'todas' ? $tareasStore : $tareasStore.filter((t) => t.etiqueta === categoria)
+	);
 	let completados = $derived(proyectos.filter((t) => clasificar(t) === 'completada'));
 	let enProgreso = $derived(proyectos.filter((t) => clasificar(t) === 'en_progreso'));
 	let pendientes = $derived(proyectos.filter((t) => clasificar(t) === 'pendiente'));
@@ -169,7 +186,7 @@
 		iaLoading = true;
 		iaError = '';
 		try {
-			const res = await api.resumenDashboard();
+			const res = await api.resumenDashboard(categoria);
 			iaResumen = res.resumen || '';
 			if (res.error) iaError = res.error;
 		} catch (e: any) {
@@ -200,6 +217,18 @@
 			{#if iaLoading}<Loader2 size={14} class="animate-spin" />{:else}<Sparkles size={14} />{/if}
 			{iaLoading ? 'Analizando...' : 'Analizar con IA'}
 		</button>
+	</div>
+
+	<div class="flex gap-1.5 overflow-x-auto no-scrollbar -mx-1 px-1 pb-0.5">
+		{#each CATEGORIAS as c}
+			<button
+				onclick={() => { categoria = c.id; iaResumen = ''; iaError = ''; }}
+				class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors {categoria === c.id ? 'bg-accent text-white border-accent' : 'bg-card border-border text-muted hover:text-text'}"
+			>
+				{c.label}
+				<span class="text-[10px] px-1.5 py-0.5 rounded-full {categoria === c.id ? 'bg-white/20' : 'bg-bg'}">{conteos[c.id] || 0}</span>
+			</button>
+		{/each}
 	</div>
 
 	<div class="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-accent/20 via-card to-card p-6">
@@ -292,14 +321,6 @@
 			<option value="pendiente">Pendiente</option>
 			<option value="completada">Completado</option>
 			<option value="vencidos">Vencidos</option>
-		</select>
-		<select bind:value={fEtiqueta} class="bg-bg border border-border rounded-xl px-2 py-2 text-xs text-text">
-			<option value="todas">Tipo: todos</option>
-			<option value="emprendimiento">Emprendimiento</option>
-			<option value="tarea">Tarea</option>
-			<option value="habito">Hábito</option>
-			<option value="investigacion">Investigación</option>
-			<option value="idea">Idea</option>
 		</select>
 		<select bind:value={fPrioridad} class="bg-bg border border-border rounded-xl px-2 py-2 text-xs text-text">
 			<option value="todas">Prioridad: todas</option>

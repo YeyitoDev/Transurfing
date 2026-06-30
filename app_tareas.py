@@ -975,10 +975,12 @@ async def resumen_tarea(data: ResumenTareaRequest):
 
 
 @app.get("/api/agente/resumen-dashboard")
-async def resumen_dashboard_endpoint():
-    """Genera un análisis narrativo del estado global de los proyectos."""
+async def resumen_dashboard_endpoint(etiqueta: Optional[str] = None):
+    """Genera un análisis narrativo del estado de los proyectos (opcionalmente por categoría)."""
     import agente_planes
     tareas = storage.listar_tareas()
+    if etiqueta and etiqueta != "todas":
+        tareas = [t for t in tareas if t.get("etiqueta") == etiqueta]
     try:
         resumen = await agente_planes.resumen_dashboard(tareas)
         return {"resumen": resumen}

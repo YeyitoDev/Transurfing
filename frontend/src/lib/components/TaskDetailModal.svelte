@@ -101,12 +101,109 @@
 		if (sub) moverSub(sub, destino);
 	}
 
+	// --- Selección múltiple de subtareas (rubber-band + ctrl/cmd-clic) ---
+	let seleccionados = $state<string[]>([]);
+	let selecting = $state(false);
+	let selBox = $state<{ left: number; top: number; width: number; height: number } | null>(null);
+	let borrandoSel = $state(false);
+	let kanbanEl = $state<HTMLDivElement | null>(null);
+	let selStart = { x: 0, y: 0 };
+
+	$effect(() => {
+		void tarea?.id;
+		seleccionados = [];
+	});
+
+	function toggleSel(id: string) {
+		seleccionados = seleccionados.includes(id) ? seleccionados.filter((x) => x !== id) : [...seleccionados, id];
+	}
+	function limpiarSeleccion() {
+		seleccionados = [];
+	}
+
+	function onSelDown(e: MouseEvent) {
+		if (e.button !== 0 || !kanbanEl) return;
+		const target = e.target as HTMLElement;
+		if (target.closest('[data-subcard]') || target.closest('button, input, textarea, select, a, [draggable="true"]')) return;
+		selecting = true;
+		selStart = { x: e.clientX, y: e.clientY };
+		const r = kanbanEl.getBoundingClientRect();
+		selBox = { left: e.clientX - r.left, top: e.clientY - r.top, width: 0, height: 0 };
+		seleccionados = [];
+		window.addEventListener('mousemove', onSelMove);
+		window.addEventListener('mouseup', onSelUp);
+		e.preventDefault();
+	}
+	function onSelMove(e: MouseEvent) {
+		if (!selecting || !kanbanEl) return;
+		const r = kanbanEl.getBoundingClientRect();
+		const boxL = Math.min(selStart.x, e.clientX), boxR = Math.max(selStart.x, e.clientX);
+		const boxT = Math.min(selStart.y, e.clientY), boxB = Math.max(selStart.y, e.clientY);
+		selBox = { left: boxL - r.left, top: boxT - r.top, width: boxR - boxL, height: boxB - boxT };
+		const ids: string[] = [];
+		kanbanEl.querySelectorAll('[data-subcard]').forEach((el) => {
+			const cr = el.getBoundingClientRect();
+			if (cr.left < boxR && cr.right > boxL && cr.top < boxB && cr.bottom > boxT) {
+				ids.push((el as HTMLElement).dataset.subcard!);
+			}
+		});
+		seleccionados = ids;
+	}
+	function onSelUp() {
+		selecting = false;
+		selBox = null;
+		window.removeEventListener('mousemove', onSelMove);
+		window.removeEventListener('mouseup', onSelUp);
+	}
+
+	async function eliminarSeleccionadas() {
+		if (!tarea || seleccionados.length === 0) return;
+		if (!confirm(`¿Eliminar ${seleccionados.length} subtarea(s)? Esta acción no se puede deshacer.`)) return;
+		const ids = [...seleccionados];
+		borrandoSel = true;
+		const restantes = tarea.subtareas.filter((s) => !ids.includes(s.id));
+		const completadas = restantes.filter((s) => s.completada || s.estado === 'completada').length;
+		const total = restantes.length;
+		const progreso = total > 0 ? Math.round((completadas / total) * 1000) / 10 : tarea.completada_manual ? 100 : 0;
+		onTaskChange({ ...tarea, subtareas: restantes, subtareas_completadas: completadas, subtareas_total: total, progreso } as Tarea);
+		seleccionados = [];
+		try {
+			let ultima: Tarea | null = null;
+			for (const id of ids) ultima = await api.eliminarSubtarea(id);
+			if (ultima) onTaskChange(ultima);
+		} catch {
+			mostrarError('No se pudieron eliminar todas las subtareas seleccionadas.');
+		} finally {
+			borrandoSel = false;
+		}
+	}
+
+	async function moverSeleccionadas(destino: ColId) {
+		if (!tarea || seleccionados.length === 0) return;
+		const ids = [...seleccionados];
+		seleccionados = [];
+		for (const id of ids) {
+			const sub = tarea?.subtareas.find((s) => s.id === id);
+			if (sub) await moverSub(sub, destino);
+		}
+	}
+
 	// --- Agente Scrum / Project Manager ---
 	type QuickWin = { titulo: string; justificacion: string; impacto: 'alto' | 'medio' | 'bajo'; esfuerzo: 'alto' | 'medio' | 'bajo'; subtarea_id: string };
 	type ScrumData = { ok: boolean; analisis: string; quick_wins: QuickWin[]; recomendaciones: string[]; riesgos: string[]; error?: string };
 	let scrum = $state<ScrumData | null>(null);
 	let scrumLoading = $state(false);
 	let creandoQuickWin = $state<string | null>(null);
+
+	// --- Pestañas del modal ---
+	const MODAL_TABS = [
+		{ id: 'tablero', label: 'Tablero', icon: CheckSquare },
+		{ id: 'chat', label: 'Chat', icon: Bot },
+		{ id: 'resumen', label: 'Resumen', icon: Sparkles },
+		{ id: 'scrum', label: 'Scrum/PM', icon: Zap },
+		{ id: 'github', label: 'GitHub', icon: Github }
+	] as const;
+	let tabActiva = $state<'tablero' | 'chat' | 'resumen' | 'scrum' | 'github'>('tablero');
 
 	const NIVEL_CLS: Record<string, string> = {
 		alto: 'text-green-400 bg-green-500/10 border-green-500/20',
@@ -641,6 +738,21 @@
 					</div>
 				{/if}
 
+				<div class="sticky top-0 z-20 -mx-5 px-5 mb-4 bg-card/95 backdrop-blur border-b border-border">
+					<div class="flex gap-1 overflow-x-auto no-scrollbar py-2">
+						{#each MODAL_TABS as mt}
+							{@const Icon = mt.icon}
+							<button
+								onclick={() => (tabActiva = mt.id)}
+								class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors {tabActiva === mt.id ? 'bg-accent text-white border-accent' : 'bg-card2 border-border text-muted hover:text-text'}"
+							>
+								<Icon size={13} /> {mt.label}
+							</button>
+						{/each}
+					</div>
+				</div>
+
+				{#if tabActiva === 'scrum'}
 				<div class="bg-card2 border border-border rounded-xl p-3 mb-4">
 					<div class="flex items-center justify-between gap-2 mb-2">
 						<div class="text-xs font-semibold text-text flex items-center gap-1.5">
@@ -702,9 +814,14 @@
 						{/if}
 					{/if}
 				</div>
+				{/if}
 
 				{#snippet subtareaCard(sub: Subtarea)}
-										<div class="rounded-lg bg-bg border border-border overflow-hidden {sub.completada ? 'opacity-60' : ''}">
+										<div
+											data-subcard={sub.id}
+											onclick={(e) => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); e.stopPropagation(); toggleSel(sub.id); } }}
+											class="rounded-lg bg-bg border overflow-hidden {sub.completada ? 'opacity-60' : ''} {seleccionados.includes(sub.id) ? 'border-accent ring-1 ring-accent' : 'border-border'}"
+										>
 											<div class="flex items-center gap-2 p-2">
 												<span
 													class="cursor-grab active:cursor-grabbing text-muted/40 hover:text-muted shrink-0"
@@ -923,6 +1040,7 @@
 										</div>
 				{/snippet}
 
+				{#if tabActiva === 'tablero'}
 				<div class="bg-card2 border border-border rounded-xl p-3 mb-4">
 					<div class="text-xs font-semibold text-text mb-2 flex items-center justify-between gap-1.5">
 						<div class="flex items-center gap-1.5">
@@ -943,10 +1061,30 @@
 							<span>{mensajeError}</span>
 						</div>
 					{/if}
+					{#if seleccionados.length > 0}
+						<div class="flex items-center gap-1.5 flex-wrap bg-accent/10 border border-accent/30 rounded-lg px-3 py-2 mb-2">
+							<span class="text-xs font-semibold text-accent">{seleccionados.length} seleccionada(s)</span>
+							<span class="text-[10px] text-muted ml-1">Mover a:</span>
+							{#each KANBAN_COLS as col (col.id)}
+								<button onclick={() => moverSeleccionadas(col.id)} class="text-[10px] px-2 py-1 rounded border border-border bg-card2 text-text hover:border-accent flex items-center gap-1">
+									<span class="w-1.5 h-1.5 rounded-full {col.dot}"></span> {col.label}
+								</button>
+							{/each}
+							<button onclick={eliminarSeleccionadas} disabled={borrandoSel} class="ml-auto text-[10px] px-2 py-1 rounded bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 flex items-center gap-1 disabled:opacity-50">
+								{#if borrandoSel}<Loader2 size={11} class="animate-spin" />{:else}<Trash2 size={11} />{/if} Eliminar
+							</button>
+							<button onclick={limpiarSeleccion} class="text-[10px] px-2 py-1 rounded border border-border text-muted hover:text-text">Limpiar</button>
+						</div>
+					{:else}
+						<div class="text-[10px] text-muted mb-2">Arrastra sobre el tablero para seleccionar varias · Ctrl/⌘+clic para marcar · el asa mueve de columna.</div>
+					{/if}
 					{#if (tarea.subtareas || []).length === 0}
 						<p class="text-[11px] text-muted">No hay subtareas. Añade una abajo o pide quick wins al agente Scrum.</p>
 					{:else}
-						<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5">
+						<div bind:this={kanbanEl} onmousedown={onSelDown} class="relative grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5 {selecting ? 'select-none' : ''}">
+							{#if selBox}
+								<div class="absolute z-30 border border-accent bg-accent/20 pointer-events-none rounded" style="left:{selBox.left}px;top:{selBox.top}px;width:{selBox.width}px;height:{selBox.height}px"></div>
+							{/if}
 							{#each KANBAN_COLS as col (col.id)}
 								<div
 									ondragover={(e) => { e.preventDefault(); dragOverCol = col.id; }}
@@ -995,34 +1133,38 @@
 						{/if}
 					</div>
 				</div>
+				{/if}
 
-				<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4 min-h-[420px]">
-					<div>
-						<ChatPanel {tarea} />
-					</div>
+				{#if tabActiva === 'chat'}
+				<div class="mb-4 min-h-[420px]">
+					<ChatPanel {tarea} />
+				</div>
+				{/if}
 
-					<div>
-						<div class="bg-accent/5 border border-accent/20 rounded-xl p-3">
-							<div class="flex items-center justify-between mb-2">
-								<div class="text-xs font-semibold text-text flex items-center gap-1.5">
-									<Sparkles size={14} class="text-accent" /> Resumen del proyecto
-								</div>
-								<button onclick={generarResumen} disabled={resumenLoading} class="text-[10px] bg-accent text-white rounded-lg px-2.5 py-1.5 flex items-center gap-1 disabled:opacity-50">
-									{#if resumenLoading}<Loader2 size={10} class="animate-spin" />{:else}<Sparkles size={10} />{/if}
-									{resumenLoading ? 'Generando...' : 'Resumen'}
-								</button>
+				{#if tabActiva === 'resumen'}
+				<div class="mb-4 min-h-[420px]">
+					<div class="bg-accent/5 border border-accent/20 rounded-xl p-3">
+						<div class="flex items-center justify-between mb-2">
+							<div class="text-xs font-semibold text-text flex items-center gap-1.5">
+								<Sparkles size={14} class="text-accent" /> Resumen del proyecto
 							</div>
-							{#if resumen}
-								<div class="prose prose-invert prose-sm max-w-none bg-bg border border-border rounded-lg p-3 overflow-y-auto max-h-[420px]">
-									{@html marked.parse(resumen, { async: false })}
-								</div>
-							{:else}
-								<p class="text-[11px] text-muted">Pulsa "Resumen" para ver, en 3 líneas, qué se ha avanzado, qué falta y el próximo paso.</p>
-							{/if}
+							<button onclick={generarResumen} disabled={resumenLoading} class="text-[10px] bg-accent text-white rounded-lg px-2.5 py-1.5 flex items-center gap-1 disabled:opacity-50">
+								{#if resumenLoading}<Loader2 size={10} class="animate-spin" />{:else}<Sparkles size={10} />{/if}
+								{resumenLoading ? 'Generando...' : 'Resumen'}
+							</button>
 						</div>
+						{#if resumen}
+							<div class="prose prose-invert prose-sm max-w-none bg-bg border border-border rounded-lg p-3 overflow-y-auto max-h-[60vh]">
+								{@html marked.parse(resumen, { async: false })}
+							</div>
+						{:else}
+							<p class="text-[11px] text-muted">Pulsa "Resumen" para ver, en 3 líneas, qué se ha avanzado, qué falta y el próximo paso.</p>
+						{/if}
 					</div>
 				</div>
+				{/if}
 
+				{#if tabActiva === 'github'}
 				<div class="mb-4">
 					<button onclick={() => (githubOpen = !githubOpen)} class="w-full flex items-center justify-between bg-card2 border border-border rounded-xl px-3 py-2 text-xs font-semibold text-text hover:border-accent transition-colors">
 						<span class="flex items-center gap-1.5"><Github size={14} /> Conexión GitHub</span>
@@ -1034,6 +1176,7 @@
 						</div>
 					{/if}
 				</div>
+				{/if}
 
 				{#if tieneInforme}
 					<button onclick={() => (docOpen = true)} class="w-full mt-4 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl p-2.5 text-xs font-medium flex items-center justify-center gap-2 hover:bg-amber-500/15">
