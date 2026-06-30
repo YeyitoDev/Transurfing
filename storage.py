@@ -234,6 +234,8 @@ def _decorar(tarea: Dict[str, Any]) -> Dict[str, Any]:
         "numero": tarea.get("numero"),
         "habito_log": tarea.get("habito_log", []),
         **tarea,
+        "icono": tarea.get("icono") or _emoji_por_defecto(tarea.get("titulo", ""), tarea.get("etiqueta", "tarea")),
+        "color": tarea.get("color", ""),
         "subtareas_total": total,
         "subtareas_completadas": completadas,
         "progreso": progreso,
@@ -307,6 +309,42 @@ def _siguiente_numero(data: Dict[str, Any]) -> int:
     return max_num + 1
 
 
+_EMOJI_ETIQUETA = {
+    "emprendimiento": "\U0001F680",
+    "tarea": "\u2705",
+    "habito": "\U0001F501",
+    "investigacion": "\U0001F52C",
+    "idea": "\U0001F4A1",
+}
+
+_EMOJI_KEYWORDS = [
+    (("gym", "ejercicio", "correr", "deporte", "entrenar", "fitness"), "\U0001F3CB\uFE0F"),
+    (("leer", "libro", "lectura"), "\U0001F4DA"),
+    (("código", "codigo", "code", "program", "dev", "app", "web", "api", "bug", "frontend", "backend"), "\U0001F4BB"),
+    (("reunión", "reunion", "meeting", "llamada", "call"), "\U0001F4DE"),
+    (("comprar", "compras", "mercado"), "\U0001F6D2"),
+    (("viaje", "viajar", "vuelo", "avión", "avion"), "\u2708\uFE0F"),
+    (("dinero", "finanzas", "presupuesto", "pago", "factura"), "\U0001F4B0"),
+    (("salud", "médico", "medico", "doctor", "cita"), "\U0001FA7A"),
+    (("diseño", "diseno", "design", "ui", "ux"), "\U0001F3A8"),
+    (("escribir", "artículo", "articulo", "blog", "redacción", "redaccion"), "\u270D\uFE0F"),
+    (("música", "musica", "canción", "cancion"), "\U0001F3B5"),
+    (("comida", "cocinar", "receta", "almuerzo", "cena"), "\U0001F373"),
+    (("estudiar", "examen", "curso", "clase", "universidad", "maestría", "maestria"), "\U0001F393"),
+    (("email", "correo", "mail"), "\U0001F4E7"),
+    (("casa", "hogar", "limpiar", "limpieza"), "\U0001F3E0"),
+]
+
+
+def _emoji_por_defecto(titulo: str, etiqueta: str) -> str:
+    """Elige un emoji representativo por palabras clave del título, con fallback por etiqueta."""
+    texto = (titulo or "").lower()
+    for claves, emoji in _EMOJI_KEYWORDS:
+        if any(c in texto for c in claves):
+            return emoji
+    return _EMOJI_ETIQUETA.get(etiqueta, "\u2705")
+
+
 def crear_tarea(
     titulo: str,
     prioridad: str = "media",
@@ -319,6 +357,8 @@ def crear_tarea(
     objetivo: str = "",
     documento: str = "",
     subtareas: Optional[List[str]] = None,
+    icono: str = "",
+    color: str = "",
 ) -> Dict[str, Any]:
     if prioridad not in PRIORIDADES:
         prioridad = "media"
@@ -342,6 +382,8 @@ def crear_tarea(
             "fecha_limite": fecha_limite or None,
             "objetivo": objetivo.strip(),
             "documento": documento or "",
+            "icono": (icono or "").strip() or _emoji_por_defecto(titulo, etiqueta),
+            "color": (color or "").strip(),
             "proxima_alta_valor": "",
             "chat_sesiones": [],
             "github_repo": "",
@@ -437,6 +479,8 @@ def actualizar_tarea(
     dias_semana: Optional[List[str]] = None,
     objetivo: Optional[str] = None,
     documento: Optional[str] = None,
+    icono: Optional[str] = None,
+    color: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     with _lock:
         data = _cargar_raw()
@@ -450,6 +494,10 @@ def actualizar_tarea(
                     t["objetivo"] = objetivo.strip()
                 if documento is not None:
                     t["documento"] = documento
+                if icono is not None:
+                    t["icono"] = icono.strip()
+                if color is not None:
+                    t["color"] = color.strip()
                 if prioridad is not None and prioridad in PRIORIDADES:
                     t["prioridad"] = prioridad
                 if fecha_limite is not None:

@@ -56,6 +56,8 @@ export const api = {
 		horas: string[];
 		dias_semana: string[];
 		objetivo: string;
+		icono?: string;
+		color?: string;
 	}) => req<Tarea>('/tareas', 'POST', data),
 	actualizarTarea: (
 		id: string,
@@ -70,6 +72,8 @@ export const api = {
 			horas: string[];
 			dias_semana: string[];
 			objetivo: string;
+			icono: string;
+			color: string;
 		}>
 	) => req<Tarea>(`/tareas/${id}`, 'PATCH', data),
 	eliminarTarea: (id: string) => req(`/tareas/${id}`, 'DELETE'),

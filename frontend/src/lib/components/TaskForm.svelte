@@ -70,7 +70,11 @@
 	let horas = $state<string[]>([]);
 	let nuevaHora = $state('');
 	let diasSemana = $state<string[]>([]);
+	let icono = $state('');
+	let color = $state('');
 	let vozError = $state<string | null>(null);
+
+	const EMOJIS = ['✅','🚀','💡','🔬','🔁','🏋️','📚','💻','📞','🛒','✈️','💰','🩺','🎨','✍️','🎵','🍳','🎓','📧','🏠','⭐','🔥','🎯','📌'];
 
 	let esHabito = $derived(etiqueta === 'habito');
 	let templatePreview = $derived(TEMPLATES[etiqueta] || []);
@@ -85,6 +89,8 @@
 		repetible = false;
 		horas = [];
 		diasSemana = [];
+		icono = '';
+		color = '';
 		expandido = false;
 	}
 
@@ -118,7 +124,9 @@
 				repetible: finalRepetible,
 				horas: finalHoras,
 				dias_semana: finalDias,
-				objetivo: objetivo.trim()
+				objetivo: objetivo.trim(),
+				icono,
+				color
 			});
 			onTaskChange(t);
 			resetFormulario();
@@ -197,6 +205,21 @@
 			placeholder="Objetivo / área / proyecto (opcional)..."
 			bind:value={objetivo}
 		/>
+
+		<div class="mb-3">
+			<label class="text-xs text-muted font-medium mb-1.5 block">Apariencia (opcional)</label>
+			<div class="flex items-center gap-2 mb-2">
+				<input class="w-14 bg-bg border border-border rounded-xl px-2 py-2 text-center text-lg" maxlength="2" bind:value={icono} placeholder="🙂" />
+				<input type="color" class="w-9 h-9 rounded cursor-pointer bg-transparent border border-border p-0" value={color || '#667eea'} oninput={(ev) => (color = ev.currentTarget.value)} />
+				{#if color}<button class="text-[11px] text-muted hover:text-text" onclick={() => (color = '')}>Quitar color</button>{/if}
+				<span class="text-[10px] text-muted">Si lo dejas vacío, se elige un emoji automáticamente.</span>
+			</div>
+			<div class="flex flex-wrap gap-1">
+				{#each EMOJIS as em}
+					<button onclick={() => (icono = em)} class="w-8 h-8 rounded-lg text-base hover:bg-card2 border {icono === em ? 'border-accent' : 'border-transparent'}">{em}</button>
+				{/each}
+			</div>
+		</div>
 
 		<div class="mb-3">
 			<label class="text-xs text-muted font-medium mb-1.5 block">Tipo</label>

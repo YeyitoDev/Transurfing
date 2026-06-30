@@ -117,6 +117,8 @@ export interface Tarea {
 	completada_en: string | null;
 	creada_en: string;
 	numero: number;
+	icono?: string;
+	color?: string;
 	habito_log: string[];
 	subtareas: Subtarea[];
 	subtareas_total: number;

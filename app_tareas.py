@@ -155,6 +155,8 @@ class TareaCreate(BaseModel):
     dias_semana: List[str] = Field(default_factory=list)
     objetivo: str = ""
     subtareas: Optional[List[str]] = None
+    icono: str = ""
+    color: str = ""
 
 
 class TareaUpdate(BaseModel):
@@ -168,6 +170,8 @@ class TareaUpdate(BaseModel):
     horas: Optional[List[str]] = None
     dias_semana: Optional[List[str]] = None
     objetivo: Optional[str] = None
+    icono: Optional[str] = None
+    color: Optional[str] = None
 
 
 class SubtareaCreate(BaseModel):
@@ -269,7 +273,7 @@ async def interpretar_canvas(tarea_id: str, data: CanvasInterpretarRequest):
 @app.post("/api/tareas", status_code=201)
 def crear_tarea(data: TareaCreate):
     t = storage.crear_tarea(
-        data.titulo, data.prioridad, data.fecha_limite, data.etiqueta, data.repetible, data.descripcion, data.horas, data.dias_semana, data.objetivo, subtareas=data.subtareas
+        data.titulo, data.prioridad, data.fecha_limite, data.etiqueta, data.repetible, data.descripcion, data.horas, data.dias_semana, data.objetivo, subtareas=data.subtareas, icono=data.icono, color=data.color
     )
     notify_tareas()
     return t
@@ -289,6 +293,8 @@ def actualizar_tarea(tarea_id: str, data: TareaUpdate):
         horas=data.horas,
         dias_semana=data.dias_semana,
         objetivo=data.objetivo,
+        icono=data.icono,
+        color=data.color,
     )
     if t is None:
         raise HTTPException(404, "Tarea no encontrada")
@@ -1492,36 +1498,84 @@ class ChatGlobalMensaje(BaseModel):
     archivos: Optional[List[Dict[str, str]]] = None
 
 
+_modelos_cache: dict = {"ts": 0.0, "data": None}
+
+
+def _label_modelo(mid: str) -> str:
+    base = (mid or "").split("/")[-1].replace("-", " ").replace("_", " ").strip()
+    return base.title() if base else mid
+
+
+async def _descubrir_modelos_gateway() -> List[Dict[str, str]]:
+    """Lista modelos del gateway OpenAI-compatible (OpenCode Zen) vía GET /models."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return []
+    base_url = os.getenv("OPENAI_BASE_URL", "https://opencode.ai/zen/go/v1").rstrip("/")
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=4.0) as client:
+            r = await client.get(base_url + "/models", headers={"Authorization": f"Bearer {api_key}"})
+            r.raise_for_status()
+            payload = r.json()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("No se pudieron autodescubrir modelos del gateway: %s", exc)
+        return []
+    items = payload.get("data") or payload.get("models") or [] if isinstance(payload, dict) else []
+    out: List[Dict[str, str]] = []
+    for it in items:
+        if isinstance(it, dict):
+            mid = (it.get("id") or it.get("name") or "").strip()
+            desc = (it.get("description") or "").strip()
+        else:
+            mid = str(it).strip()
+            desc = ""
+        if not mid:
+            continue
+        out.append({
+            "id": mid,
+            "nombre": _label_modelo(mid),
+            "proveedor": "opencode",
+            "descripcion": desc or "Modelo del gateway OpenCode Zen",
+        })
+    return out
+
+
 @app.get("/api/modelos")
-def listar_modelos():
-    """Devuelve los modelos LLM disponibles según la configuración del servidor."""
+async def listar_modelos():
+    """Modelos LLM disponibles: curados por env (LLM_MODELS), autodescubiertos del gateway y Groq."""
     from voz_service import _usar_groq_llm
     base_model = os.getenv("LLM_MODEL", "qwen3.5-plus")
     groq_model = os.getenv("GROQ_LLM_MODEL", "llama-3.3-70b-versatile")
-    usar_groq = _usar_groq_llm()
-    modelos = []
-    if usar_groq:
-        modelos.append({
-            "id": groq_model,
-            "nombre": "Jarvis Groq",
-            "proveedor": "groq",
-            "descripcion": "Rápido y versátil para planificación y chat",
-        })
-    if os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_BASE_URL"):
-        modelos.append({
-            "id": base_model,
-            "nombre": "Jarvis OpenAI",
-            "proveedor": "openai",
-            "descripcion": "Modelo configurado en OPENAI_BASE_URL",
-        })
-    if not modelos:
-        modelos.append({
-            "id": base_model,
-            "nombre": "Jarvis",
-            "proveedor": "openai",
-            "descripcion": "Modelo por defecto",
-        })
-    return {"default": modelos[0]["id"] if modelos else base_model, "modelos": modelos}
+    modelos: List[Dict[str, str]] = []
+
+    manual = [m.strip() for m in os.getenv("LLM_MODELS", "").split(",") if m.strip()]
+    for mid in manual:
+        modelos.append({"id": mid, "nombre": _label_modelo(mid), "proveedor": "opencode", "descripcion": "Configurado en LLM_MODELS"})
+
+    if not manual and (os.getenv("OPENAI_API_KEY") or os.getenv("OPENAI_BASE_URL")):
+        now = time.time()
+        if _modelos_cache["data"] is None or now - _modelos_cache["ts"] > 300:
+            _modelos_cache["data"] = await _descubrir_modelos_gateway()
+            _modelos_cache["ts"] = now
+        modelos.extend(_modelos_cache["data"] or [])
+
+    if _usar_groq_llm():
+        modelos.append({"id": groq_model, "nombre": "Groq · " + _label_modelo(groq_model), "proveedor": "groq", "descripcion": "Rápido y versátil (Groq)"})
+
+    if not any(m["id"] == base_model for m in modelos):
+        modelos.insert(0, {"id": base_model, "nombre": _label_modelo(base_model), "proveedor": "opencode", "descripcion": "Modelo por defecto"})
+
+    seen = set()
+    unicos: List[Dict[str, str]] = []
+    for m in modelos:
+        if m["id"] in seen:
+            continue
+        seen.add(m["id"])
+        unicos.append(m)
+
+    default = base_model if any(m["id"] == base_model for m in unicos) else (unicos[0]["id"] if unicos else base_model)
+    return {"default": default, "modelos": unicos}
 
 
 @app.post("/api/chat-global")

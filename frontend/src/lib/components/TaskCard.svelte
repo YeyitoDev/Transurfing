@@ -99,7 +99,7 @@
 	}
 </script>
 
-<div class="h-[180px] flex flex-col bg-card border border-border {etq.border} border-l-4 rounded-2xl overflow-hidden transition-all hover:shadow-lg hover:scale-[1.01] {done ? 'opacity-50' : ''} {vencida ? 'ring-1 ring-red-500/30' : ''}">
+<div class="h-[180px] flex flex-col bg-card border border-border {etq.border} border-l-4 rounded-2xl overflow-hidden transition-all hover:shadow-lg hover:scale-[1.01] {done ? 'opacity-50' : ''} {vencida ? 'ring-1 ring-red-500/30' : ''}" style={tarea.color ? `border-left-color: ${tarea.color}` : ''}>
 	<div class="flex-1 flex flex-col p-4 cursor-pointer" onclick={() => modalStore.openDetail(tarea)}>
 		<div class="flex items-start gap-3 min-h-0">
 			<div class="w-6 h-6 min-w-6 mt-0.5 rounded-lg border-2 flex items-center justify-center text-xs transition-all {done ? 'bg-green border-green text-white' : 'border-border hover:border-accent'}" onclick={toggleManual} title={done ? 'Marcar pendiente' : 'Marcar completada'}>
@@ -107,6 +107,7 @@
 			</div>
 			<div class="flex-1 min-w-0">
 				<div class="flex items-center gap-2 mb-1">
+					{#if tarea.icono}<span class="text-lg leading-none shrink-0">{tarea.icono}</span>{/if}
 					<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-card2 text-muted border border-border">#{tarea.numero}</span>
 					<div class="text-sm font-semibold leading-snug line-clamp-2 {done ? 'line-through' : ''}">{tarea.titulo}</div>
 				</div>

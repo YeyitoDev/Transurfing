@@ -35,6 +35,29 @@ def _modelo_groq_valido(modelo: str) -> str:
         return MODELOS_GROQ_OBSOLETOS[modelo]
     return modelo
 
+
+def _es_modelo_groq(modelo: Optional[str]) -> bool:
+    m = (modelo or "").lower()
+    return m.startswith(("llama", "mixtral", "gemma", "groq/", "qwen-qwq"))
+
+
+def _seleccionar_cliente(modelo: Optional[str]):
+    """Elige (cliente, modelo) según el proveedor implícito del id seleccionado.
+
+    - Sin selección: respeta el comportamiento por defecto (Groq si está activo).
+    - Modelo tipo Groq: usa el cliente Groq si está configurado.
+    - Resto: gateway OpenAI-compatible (OpenCode Zen) con el id tal cual.
+    """
+    if not modelo:
+        if _usar_groq_llm():
+            return _obtener_cliente_groq(), _modelo_groq_valido(os.getenv("GROQ_LLM_MODEL", "llama-3.3-70b-versatile"))
+        return _obtener_cliente(), os.getenv("LLM_MODEL", "qwen3.5-plus")
+    if _es_modelo_groq(modelo):
+        cli = _obtener_cliente_groq()
+        if cli is not None:
+            return cli, _modelo_groq_valido(modelo)
+    return _obtener_cliente(), modelo
+
 PLAN_PROMPT = """Eres Jarvis, asistente de planificación de Sergio.
 
 El usuario tiene un objetivo: crear un proyecto, prepararse para una maestría, un nuevo trabajo,
@@ -332,12 +355,7 @@ async def chat_subtareas(
 ) -> Dict[str, Any]:
     """Chat para generar subtareas y priorizar dentro de una tarea."""
     logger.info("[chat_subtareas] tarea=%s sesion=%s mensaje=%s", tarea.get("id"), sesion_id, mensaje[:80])
-    if _usar_groq_llm():
-        cliente = _obtener_cliente_groq()
-        modelo = _modelo_groq_valido(modelo or os.getenv("GROQ_LLM_MODEL", "llama-3.3-70b-versatile"))
-    else:
-        cliente = _obtener_cliente()
-        modelo = modelo or os.getenv("LLM_MODEL", "qwen3.5-plus")
+    cliente, modelo = _seleccionar_cliente(modelo)
 
     # Recuperar historial de la sesión actual
     sesion = None

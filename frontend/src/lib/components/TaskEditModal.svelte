@@ -39,7 +39,11 @@
 	let horas = $state<string[]>([]);
 	let nuevaHora = $state('');
 	let diasSemana = $state<string[]>([]);
+	let icono = $state('');
+	let color = $state('');
 	let saving = $state(false);
+
+	const EMOJIS = ['✅','🚀','💡','🔬','🔁','🏋️','📚','💻','📞','🛒','✈️','💰','🩺','🎨','✍️','🎵','🍳','🎓','📧','🏠','⭐','🔥','🎯','📌'];
 
 	let esHabito = $derived(etiqueta === 'habito');
 
@@ -53,6 +57,8 @@
 			fechaLimite = tarea.fecha_limite || '';
 			horas = tarea.horas || [];
 			diasSemana = tarea.dias_semana || [];
+			icono = tarea.icono || '';
+			color = tarea.color || '';
 		}
 	});
 
@@ -83,7 +89,9 @@
 				repetible: esHabito ? true : repetible,
 				fecha_limite: fechaLimite || null,
 				horas: esHabito ? horas : [],
-				dias_semana: esHabito ? diasSemana : []
+				dias_semana: esHabito ? diasSemana : [],
+				icono,
+				color
 			});
 			onTaskChange(t);
 			modalStore.closeEdit();
@@ -124,6 +132,20 @@
 			<div class="mb-3">
 				<label class="text-xs text-muted font-medium mb-1.5 block">Descripción</label>
 				<textarea class="w-full bg-bg border border-border rounded-xl px-4 py-3 text-sm text-text resize-none" rows={3} bind:value={descripcion}></textarea>
+			</div>
+
+			<div class="mb-3">
+				<label class="text-xs text-muted font-medium mb-1.5 block">Apariencia (emoji y color)</label>
+				<div class="flex items-center gap-2 mb-2">
+					<input class="w-14 bg-bg border border-border rounded-xl px-2 py-2 text-center text-lg" maxlength="2" bind:value={icono} placeholder="🙂" />
+					<input type="color" class="w-9 h-9 rounded cursor-pointer bg-transparent border border-border p-0" value={color || '#667eea'} oninput={(ev) => (color = ev.currentTarget.value)} />
+					{#if color}<button class="text-[11px] text-muted hover:text-text" onclick={() => (color = '')}>Quitar color</button>{/if}
+				</div>
+				<div class="flex flex-wrap gap-1">
+					{#each EMOJIS as em}
+						<button onclick={() => (icono = em)} class="w-8 h-8 rounded-lg text-base hover:bg-card2 border {icono === em ? 'border-accent' : 'border-transparent'}">{em}</button>
+					{/each}
+				</div>
 			</div>
 
 			<div class="mb-3">

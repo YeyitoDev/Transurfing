@@ -129,6 +129,156 @@ export const PRESETS: { name: string; colors: ThemeColors }[] = [
 			muted: '#7c6a9c',
 			text: '#ede4fc'
 		}
+	},
+	{
+		name: 'Dracula',
+		colors: {
+			bg: '#282a36',
+			card: '#343746',
+			card2: '#3c3f51',
+			border: '#44475a',
+			accent: '#bd93f9',
+			green: '#50fa7b',
+			red: '#ff5555',
+			yellow: '#f1fa8c',
+			muted: '#6272a4',
+			text: '#f8f8f2'
+		}
+	},
+	{
+		name: 'Nord',
+		colors: {
+			bg: '#2e3440',
+			card: '#3b4252',
+			card2: '#434c5e',
+			border: '#4c566a',
+			accent: '#88c0d0',
+			green: '#a3be8c',
+			red: '#bf616a',
+			yellow: '#ebcb8b',
+			muted: '#7b88a1',
+			text: '#eceff4'
+		}
+	},
+	{
+		name: 'Solarized',
+		colors: {
+			bg: '#002b36',
+			card: '#073642',
+			card2: '#0a3d49',
+			border: '#144853',
+			accent: '#268bd2',
+			green: '#859900',
+			red: '#dc322f',
+			yellow: '#b58900',
+			muted: '#586e75',
+			text: '#93a1a1'
+		}
+	},
+	{
+		name: 'Gruvbox',
+		colors: {
+			bg: '#1d2021',
+			card: '#282828',
+			card2: '#32302f',
+			border: '#3c3836',
+			accent: '#fabd2f',
+			green: '#b8bb26',
+			red: '#fb4934',
+			yellow: '#fabd2f',
+			muted: '#928374',
+			text: '#ebdbb2'
+		}
+	},
+	{
+		name: 'Tokyo Night',
+		colors: {
+			bg: '#1a1b26',
+			card: '#24283b',
+			card2: '#2a2e42',
+			border: '#343a52',
+			accent: '#7aa2f7',
+			green: '#9ece6a',
+			red: '#f7768e',
+			yellow: '#e0af68',
+			muted: '#565f89',
+			text: '#c0caf5'
+		}
+	},
+	{
+		name: 'Neón',
+		colors: {
+			bg: '#0d0221',
+			card: '#190a32',
+			card2: '#241044',
+			border: '#3a1a66',
+			accent: '#ff2bd6',
+			green: '#05ffa1',
+			red: '#ff3860',
+			yellow: '#ffd319',
+			muted: '#8a6aa8',
+			text: '#f5e6ff'
+		}
+	},
+	{
+		name: 'Café',
+		colors: {
+			bg: '#1b1410',
+			card: '#2a201a',
+			card2: '#352a22',
+			border: '#483a2e',
+			accent: '#d6a06a',
+			green: '#8bbf6a',
+			red: '#e07a5f',
+			yellow: '#e9c46a',
+			muted: '#9c8674',
+			text: '#f1e6da'
+		}
+	},
+	{
+		name: 'Sakura',
+		colors: {
+			bg: '#fff5f7',
+			card: '#ffffff',
+			card2: '#ffeef2',
+			border: '#ffd9e2',
+			accent: '#ec4899',
+			green: '#16a34a',
+			red: '#e11d48',
+			yellow: '#d97706',
+			muted: '#b08a96',
+			text: '#4a2c38'
+		}
+	},
+	{
+		name: 'Esmeralda',
+		colors: {
+			bg: '#04140f',
+			card: '#0a2018',
+			card2: '#0f2c20',
+			border: '#16402f',
+			accent: '#10b981',
+			green: '#34d399',
+			red: '#f87171',
+			yellow: '#fbbf24',
+			muted: '#5b8473',
+			text: '#d7f5e9'
+		}
+	},
+	{
+		name: 'Grafito',
+		colors: {
+			bg: '#0c0c0d',
+			card: '#161617',
+			card2: '#1d1d1f',
+			border: '#2a2a2c',
+			accent: '#9ca3af',
+			green: '#86efac',
+			red: '#fca5a5',
+			yellow: '#fde047',
+			muted: '#6b7280',
+			text: '#e5e7eb'
+		}
 	}
 ];
 
