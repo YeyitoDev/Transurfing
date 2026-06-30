@@ -1090,6 +1090,12 @@ class GitHubLinkRepo(BaseModel):
     repo: str = Field(min_length=1)
 
 
+class GitHubRepoCreate(BaseModel):
+    name: str = Field(min_length=1)
+    private: bool = True
+    description: str = ""
+
+
 class GitHubDesarrollar(BaseModel):
     prompt: str = ""
 
@@ -1218,6 +1224,19 @@ def github_diagnostico():
 def github_callback_test():
     """Endpoint de prueba para verificar que la URL de callback es accesible."""
     return {"ok": True, "callback_url": f"{_public_url()}/api/github/oauth/callback", "mensaje": "Si ves esto, el callback es accesible desde internet."}
+
+
+@app.post("/api/github/repos")
+async def create_github_repo_endpoint(data: GitHubRepoCreate):
+    """Crea un repositorio nuevo en la cuenta del usuario."""
+    try:
+        repo = await github_service.create_repo(
+            data.name, private=data.private, description=data.description
+        )
+        return {"ok": True, "repo": repo}
+    except Exception as exc:
+        logger.exception("Error creando repo GitHub")
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/api/github/repos")

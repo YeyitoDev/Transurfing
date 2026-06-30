@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 GITHUB_API = "https://api.github.com"
 
+# Caché de la identidad (nombre/email) de la cuenta para firmar los commits.
+_user_identity_cache: Optional[Dict[str, str]] = None
+
 
 def _pat() -> Optional[str]:
     cfg = storage.get_github_config()
@@ -211,6 +214,35 @@ async def get_repo(repo: str) -> Dict[str, Any]:
     }
 
 
+async def create_repo(name: str, private: bool = True, description: str = "") -> Dict[str, Any]:
+    """Crea un repositorio nuevo en la cuenta autenticada (con commit inicial)."""
+    repo_name = name.strip().split("/")[-1]
+    if not repo_name:
+        raise RuntimeError("Nombre de repositorio vacío")
+    url = f"{GITHUB_API}/user/repos"
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        res = await client.post(
+            url,
+            headers=_headers(),
+            json={
+                "name": repo_name,
+                "description": description,
+                "private": private,
+                "auto_init": True,
+            },
+        )
+    if res.status_code != 201:
+        raise RuntimeError(f"GitHub error {res.status_code}: {res.text}")
+    r = res.json()
+    return {
+        "full_name": r["full_name"],
+        "name": r["name"],
+        "owner": r["owner"]["login"],
+        "default_branch": r["default_branch"],
+        "url": r["html_url"],
+    }
+
+
 async def get_repo_tree(repo: str, path: str = "", branch: Optional[str] = None) -> List[Dict[str, Any]]:
     """Devuelve árbol plano de archivos de un repo hasta un path."""
     full = _full_repo(repo)
@@ -287,6 +319,30 @@ async def create_branch(repo: str, new_branch: str, base_branch: Optional[str] =
         return create_res.json()["object"]["sha"]
 
 
+async def _commit_identity(client: httpx.AsyncClient) -> Dict[str, str]:
+    """Devuelve {name, email} de la cuenta autenticada para firmar commits.
+
+    Usa el nombre real de la persona en GitHub (o el login si no tiene nombre)
+    y un email noreply si la cuenta no expone email público. Se cachea.
+    """
+    global _user_identity_cache
+    if _user_identity_cache is not None:
+        return _user_identity_cache
+    try:
+        res = await client.get(f"{GITHUB_API}/user", headers=_headers())
+        if res.status_code == 200:
+            u = res.json()
+            login = u.get("login") or "user"
+            name = u.get("name") or login
+            email = u.get("email") or f"{u.get('id', '')}+{login}@users.noreply.github.com"
+            _user_identity_cache = {"name": name, "email": email}
+        else:
+            _user_identity_cache = {}
+    except Exception:
+        _user_identity_cache = {}
+    return _user_identity_cache
+
+
 async def commit_file(
     repo: str,
     path: str,
@@ -313,6 +369,12 @@ async def commit_file(
         }
         if current_sha:
             body["sha"] = current_sha
+
+        identity = await _commit_identity(client)
+        if identity.get("name"):
+            author = {"name": identity["name"], "email": identity["email"]}
+            body["author"] = author
+            body["committer"] = author
 
         res = await client.put(url, headers=_headers(), json=body)
         if res.status_code not in (200, 201):

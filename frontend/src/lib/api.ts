@@ -252,6 +252,12 @@ export const api = {
 	setGitHubConfig: (pat: string, username = '') =>
 		req<{ ok: boolean; username: string; scopes: string[] }>('/github/config', 'POST', { pat, username }),
 	listGitHubRepos: () => req<{ repos: GitHubRepo[] }>('/github/repos'),
+	createGitHubRepo: (name: string, opts?: { private?: boolean; description?: string }) =>
+		req<{ ok: boolean; repo: GitHubRepo }>('/github/repos', 'POST', {
+			name,
+			private: opts?.private ?? true,
+			description: opts?.description ?? ''
+		}),
 	linkGitHubRepo: (tareaId: string, repo: string) =>
 		req<{ tarea: Tarea }>(`/tareas/${tareaId}/github`, 'POST', { repo }),
 	unlinkGitHubRepo: (tareaId: string) => req<{ tarea: Tarea }>(`/tareas/${tareaId}/github`, 'DELETE'),

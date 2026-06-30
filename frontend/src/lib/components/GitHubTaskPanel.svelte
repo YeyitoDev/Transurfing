@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Github, Link, Loader2, Code2, ExternalLink, X, AlertCircle, GitBranch, GitPullRequest, Rocket } from 'lucide-svelte';
+	import { Github, Link, Loader2, Code2, ExternalLink, X, AlertCircle, GitBranch, GitPullRequest, Rocket, Plus } from 'lucide-svelte';
 	import { api } from '../api';
 	import { onTaskChange } from '../stores';
 	import type { Tarea, GitHubRepo } from '../types';
@@ -10,6 +10,7 @@
 	let loadingRepos = $state(false);
 	let selectedRepo = $state(tarea.github_repo || '');
 	let linking = $state(false);
+	let creating = $state(false);
 	let developing = $state(false);
 	let merging = $state(false);
 	let result = $state<any>(null);
@@ -52,6 +53,24 @@
 			error = e?.message || 'No se pudo vincular el repo.';
 		} finally {
 			linking = false;
+		}
+	}
+
+	async function crearRepo() {
+		const name = selectedRepo.trim();
+		if (!name) return;
+		creating = true;
+		error = '';
+		try {
+			const res = await api.createGitHubRepo(name, { private: true });
+			selectedRepo = res.repo.full_name;
+			const linkRes = await api.linkGitHubRepo(tarea.id, res.repo.full_name);
+			onTaskChange(linkRes.tarea);
+			await loadRepos();
+		} catch (e: any) {
+			error = e?.message || 'No se pudo crear el repositorio.';
+		} finally {
+			creating = false;
 		}
 	}
 
@@ -116,53 +135,41 @@
 	if (tarea.github_repo) refreshStatus();
 </script>
 
-<div class="bg-card2 border border-border rounded-xl p-3 space-y-3">
-	<div class="flex items-center justify-between">
-		<div class="text-xs font-semibold text-text flex items-center gap-1.5">
-			<Github size={14} /> GitHub
-		</div>
-		{#if config && !config.configured}
-			<span class="text-[10px] text-red-400">Configura tu token en /github</span>
-		{/if}
-	</div>
+<div class="bg-card2 border border-border rounded-xl p-2.5 space-y-2">
+	{#if config && !config.configured}
+		<div class="text-[10px] text-red-400">Configura tu token en /github</div>
+	{/if}
 
 	{#if !isLinked}
-		<div class="space-y-2">
-			<div class="text-xs text-muted">Vincula un repositorio para que el agente pueda proponer cambios.</div>
-			<div class="flex gap-2">
-				<input
-					class="flex-1 bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder-muted"
-					placeholder="owner/repo"
-					bind:value={selectedRepo}
-					onfocus={() => repos.length === 0 && loadRepos()}
-				/>
-				<button
-					onclick={loadRepos}
-					disabled={loadingRepos}
-					class="px-2 py-2 rounded-lg bg-card border border-border text-muted hover:text-text"
-					title="Recargar repos"
-				>
-					{#if loadingRepos}<Loader2 size={14} class="animate-spin" />{:else}<Github size={14} />{/if}
-				</button>
-			</div>
-			{#if repos.length > 0}
-				<select
-					class="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text"
-					bind:value={selectedRepo}
-				>
-					<option value="">Selecciona un repositorio...</option>
-					{#each repos as repo}
-						<option value={repo.full_name}>{repo.full_name}</option>
-					{/each}
-				</select>
-			{/if}
+		<div class="flex gap-2 items-center">
+			<Github size={14} class="text-muted shrink-0" />
+			<input
+				class="flex-1 min-w-0 bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder-muted"
+				placeholder="owner/repo o nombre nuevo"
+				list="repos-{tarea.id}"
+				bind:value={selectedRepo}
+				onfocus={() => repos.length === 0 && loadRepos()}
+			/>
+			<datalist id="repos-{tarea.id}">
+				{#each repos as repo}<option value={repo.full_name}></option>{/each}
+			</datalist>
 			<button
 				onclick={linkRepo}
 				disabled={!selectedRepo.trim() || linking}
-				class="w-full bg-accent text-white rounded-lg py-2 text-xs font-medium flex items-center justify-center gap-1 disabled:opacity-50"
+				class="px-3 py-2 rounded-lg bg-accent text-white text-xs font-medium flex items-center gap-1 disabled:opacity-50 whitespace-nowrap"
+				title="Vincular repositorio existente"
 			>
 				{#if linking}<Loader2 size={14} class="animate-spin" />{:else}<Link size={14} />{/if}
-				Vincular repositorio
+				Vincular
+			</button>
+			<button
+				onclick={crearRepo}
+				disabled={!selectedRepo.trim() || creating}
+				class="px-3 py-2 rounded-lg bg-card border border-border text-text text-xs font-medium flex items-center gap-1 disabled:opacity-50 whitespace-nowrap"
+				title="Crear un repositorio nuevo con ese nombre"
+			>
+				{#if creating}<Loader2 size={14} class="animate-spin" />{:else}<Plus size={14} />{/if}
+				Crear
 			</button>
 		</div>
 	{:else}
