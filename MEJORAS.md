@@ -148,3 +148,9 @@ No hay tests; los endpoints de ejecución paralela de agentes no tienen límite.
   - `chat_subtareas` usa el servicio y envía **imágenes** al modelo (content multimodal) con **fallback automático a solo texto** si el modelo no soporta visión. `chat_global_service` también usa el servicio (URLs/PDF/texto).
   - `ChatPanel.svelte`: el adjuntar ahora lee imágenes/PDF/binarios como **base64**, muestra **miniaturas** de imágenes, y añade un botón **URL** para pegar enlaces (chip con globo). Los adjuntos no se persisten en el historial (evita inflar el storage).
   - `pypdf` añadido a `requirements.txt`. Backend verificado con `py_compile` y prueba funcional (texto + imagen).
+- **2026-06-30 (oleada 12)** — Rediseño del dashboard (`/dashboard`):
+  - **Hero con resumen grande**: titular dinámico (`headline`) que prioriza lo importante (vencidos, alta prioridad, momentum, % completado) + mini-stats + barra de progreso global, sobre un panel con gradiente.
+  - **"Lo que dicen tus datos"**: insights derivados localmente (vencidos, alta prioridad abiertos, estancados +14d, cerrados en 7d, calidad media/score bajo, racha de hábitos, sin próximo paso) como tarjetas con severidad (danger/warn/success/info).
+  - **Análisis con IA**: botón **Analizar con IA** → `GET /api/agente/resumen-dashboard` + `agente_planes.resumen_dashboard` (titular, qué dicen los datos, datos importantes y próxima acción, en markdown). On-demand para no llamar al LLM en cada carga.
+  - **Filtros**: búsqueda + estado (incl. vencidos) + tipo + prioridad + orden (relevancia/progreso/prioridad/fecha/recientes), con contador "N de M" y botón Limpiar. Las tarjetas se filtran/ordenan reactivamente (`filtrados`).
+  - **KPIs** rediseñados con icono en círculo de color. `api.resumenDashboard()` añadido. Backend verificado con `py_compile`; frontend a validar con `npm run check` en tu Mac (aquí no hay deps instaladas).

@@ -947,6 +947,19 @@ async def resumen_tarea(data: ResumenTareaRequest):
         return {"resumen": "No pude generar el resumen en este momento."}
 
 
+@app.get("/api/agente/resumen-dashboard")
+async def resumen_dashboard_endpoint():
+    """Genera un análisis narrativo del estado global de los proyectos."""
+    import agente_planes
+    tareas = storage.listar_tareas()
+    try:
+        resumen = await agente_planes.resumen_dashboard(tareas)
+        return {"resumen": resumen}
+    except Exception as exc:
+        logger.exception("Error generando resumen de dashboard: %s", exc)
+        return {"resumen": "", "error": "No pude generar el análisis en este momento."}
+
+
 @app.post("/api/tareas/{tarea_id}/mejorar-descripcion")
 async def mejorar_descripcion_endpoint(tarea_id: str):
     """Mejora la descripción del proyecto/tarea con IA y la guarda."""

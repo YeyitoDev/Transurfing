@@ -567,6 +567,63 @@ async def resumen_tarea(tarea: Dict[str, Any]) -> str:
         return "No pude generar el resumen en este momento."
 
 
+async def resumen_dashboard(tareas: List[Dict[str, Any]]) -> str:
+    """Genera un análisis narrativo del estado global de los proyectos del usuario."""
+    from datetime import date
+
+    if _usar_groq_llm():
+        cliente = _obtener_cliente_groq()
+        modelo = _modelo_groq_valido(os.getenv("GROQ_LLM_MODEL", "llama-3.3-70b-versatile"))
+    else:
+        cliente = _obtener_cliente()
+        modelo = os.getenv("LLM_MODEL", "qwen3.5-plus")
+
+    if not tareas:
+        return "Aún no hay proyectos para analizar. Crea el primero y vuelve aquí."
+
+    hoy = date.today().isoformat()
+    total = len(tareas)
+    completados = sum(1 for t in tareas if t.get("estado") == "completada")
+    vencidos = sum(
+        1 for t in tareas
+        if t.get("estado") != "completada" and t.get("fecha_limite") and t.get("fecha_limite") < hoy
+    )
+    lineas = []
+    for t in tareas[:40]:
+        lineas.append(
+            f"- {t.get('titulo', '(sin título)')} [{t.get('etiqueta', 'tarea')}] "
+            f"prioridad={t.get('prioridad', 'media')} progreso={t.get('progreso', 0)}% "
+            f"estado={t.get('estado', 'pendiente')} vence={t.get('fecha_limite') or '—'} "
+            f"subtareas={t.get('subtareas_completadas', 0)}/{t.get('subtareas_total', 0)} "
+            f"próximo={(t.get('proxima_alta_valor') or '—')[:60]}"
+        )
+    contexto = "\n".join(lineas)
+    prompt = (
+        f"Datos de los proyectos del usuario (hoy={hoy}, total={total}, completados={completados}, vencidos={vencidos}):\n"
+        f"{contexto}\n\n"
+        "Analiza estos datos y responde en español, en markdown, conciso (máximo 6 líneas):\n"
+        "- **Titular:** una frase sobre el estado general de su desarrollo.\n"
+        "- **Qué dicen los datos:** patrones (dónde concentra avance, qué está estancado, calidad/ritmo).\n"
+        "- **Datos importantes:** lo que NO debe pasar por alto (vencidos, alta prioridad sin avance, riesgos, rachas).\n"
+        "- **Próxima acción:** la de mayor valor ahora.\n"
+        "Sé específico usando los nombres reales de los proyectos. Sin saludos ni relleno."
+    )
+    try:
+        response = await cliente.chat.completions.create(
+            model=modelo,
+            messages=[
+                {"role": "system", "content": "Eres Jarvis, analista de productividad. Devuelve un análisis breve, específico y accionable en markdown."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.5,
+            max_tokens=700,
+        )
+        return response.choices[0].message.content.strip() or "Sin análisis disponible."
+    except Exception as exc:
+        logger.exception("Error generando resumen de dashboard: %s", exc)
+        return "No pude generar el análisis en este momento."
+
+
 async def mejorar_descripcion(tarea: Dict[str, Any]) -> str:
     """Genera una descripción mejorada y clara del proyecto/tarea usando LLM."""
     if _usar_groq_llm():
