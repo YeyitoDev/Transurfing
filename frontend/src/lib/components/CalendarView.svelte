@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
-	import { tareasStore } from '../stores';
+	import { tareasStore, onTaskChange } from '../stores';
+	import { api } from '../api';
 	import TaskCard from './TaskCard.svelte';
 	import type { Tarea } from '../types';
 
@@ -18,6 +19,8 @@
 	let currentMonth = $state(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 	let selectedDate = $state(hoyISO());
 	let hoy = $state(hoyISO());
+	let dragTaskId = $state<string | null>(null);
+	let dragOverFecha = $state<string | null>(null);
 
 	let diasGrid = $derived.by(() => {
 		const year = currentMonth.getFullYear();
@@ -48,6 +51,35 @@
 		currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 		selectedDate = hoy;
 	}
+
+	function onDragStart(e: DragEvent, id: string) {
+		dragTaskId = id;
+		if (e.dataTransfer) {
+			e.dataTransfer.setData('text/plain', id);
+			e.dataTransfer.effectAllowed = 'move';
+		}
+	}
+
+	async function reprogramar(id: string, fecha: string) {
+		const prev = $tareasStore.find((t) => t.id === id);
+		if (!prev || prev.fecha_limite === fecha) return;
+		onTaskChange({ ...prev, fecha_limite: fecha });
+		try {
+			const t = await api.actualizarTarea(id, { fecha_limite: fecha });
+			onTaskChange(t);
+		} catch (err) {
+			console.error(err);
+			onTaskChange(prev);
+		}
+	}
+
+	function onDropFecha(e: DragEvent, fecha: string) {
+		e.preventDefault();
+		const id = dragTaskId || e.dataTransfer?.getData('text/plain') || '';
+		dragOverFecha = null;
+		dragTaskId = null;
+		if (id) reprogramar(id, fecha);
+	}
 </script>
 
 <div class="max-w-5xl mx-auto">
@@ -77,8 +109,11 @@
 			{#if fecha}
 				{@const tareasDia = getTareasDeFecha($tareasStore, fecha)}
 				<button
-					class="min-h-[80px] p-1.5 rounded-xl border border-border bg-card text-left transition-colors hover:bg-card2 {selectedDate === fecha ? 'ring-1 ring-accent' : ''} {fecha === hoy ? 'bg-accent/5' : ''}"
+					class="min-h-[80px] p-1.5 rounded-xl border bg-card text-left transition-colors hover:bg-card2 {selectedDate === fecha ? 'ring-1 ring-accent' : ''} {fecha === hoy ? 'bg-accent/5' : ''} {dragOverFecha === fecha ? 'border-accent ring-2 ring-accent/50' : 'border-border'}"
 					onclick={() => (selectedDate = fecha)}
+					ondragover={(e) => { e.preventDefault(); dragOverFecha = fecha; }}
+					ondragleave={() => { if (dragOverFecha === fecha) dragOverFecha = null; }}
+					ondrop={(e) => onDropFecha(e, fecha)}
 				>
 					<div class="text-xs font-medium mb-1 {fecha === hoy ? 'text-accent' : 'text-muted'}">{Number(fecha.slice(8, 10))}</div>
 					<div class="space-y-0.5">
@@ -100,9 +135,12 @@
 		{#if tareasSeleccionadas.length === 0}
 			<div class="text-center text-muted py-8 text-sm">No hay tareas para este día</div>
 		{:else}
+			<p class="text-[11px] text-muted mb-2">Arrastra una tarea a un día del calendario para reprogramar su fecha límite.</p>
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
 				{#each tareasSeleccionadas as t}
-					<TaskCard tarea={t} />
+					<div draggable="true" ondragstart={(e) => onDragStart(e, t.id)} class="cursor-grab active:cursor-grabbing">
+						<TaskCard tarea={t} />
+					</div>
 				{/each}
 			</div>
 		{/if}
