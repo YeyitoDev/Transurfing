@@ -154,8 +154,8 @@ def _migrar_numeros(tareas: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]],
             if "descripcion" not in s:
                 s["descripcion"] = ""
                 cambiado = True
-            if "prompt" not in s:
-                s["prompt"] = ""
+            if not s.get("prompt"):
+                s["prompt"] = _prompt_por_defecto(s.get("titulo", ""), t.get("titulo", ""))
                 cambiado = True
             if "resultado" not in s:
                 s["resultado"] = ""
@@ -380,6 +380,17 @@ def _emoji_por_defecto(titulo: str, etiqueta: str) -> str:
     return _EMOJI_ETIQUETA.get(etiqueta, "\u2705")
 
 
+def _prompt_por_defecto(subtarea_titulo: str, tarea_titulo: str) -> str:
+    """Prompt de agente por defecto para que toda subtarea sea ejecutable."""
+    sub = (subtarea_titulo or "").strip()
+    padre = (tarea_titulo or "").strip()
+    return (
+        f"Resuelve la subtarea «{sub}»"
+        + (f" de la tarea «{padre}»" if padre else "")
+        + ". Entrega un resultado completo, concreto y listo para usar."
+    )
+
+
 def crear_tarea(
     titulo: str,
     prioridad: str = "media",
@@ -440,7 +451,7 @@ def crear_tarea(
                     "completada": False,
                     "estado": "pendiente",
                     "descripcion": "",
-                    "prompt": "",
+                    "prompt": _prompt_por_defecto(s, titulo),
                     "resultado": "",
                     "repo": "",
                     "branch": "",
@@ -487,7 +498,7 @@ def agregar_subtarea_por_numero(
                     "completada": estado == "completada",
                     "estado": estado,
                     "descripcion": descripcion.strip(),
-                    "prompt": prompt.strip(),
+                    "prompt": prompt.strip() or _prompt_por_defecto(titulo, t.get("titulo", "")),
                     "resultado": "",
                     "repo": repo.strip(),
                     "branch": "",
@@ -604,7 +615,7 @@ def agregar_subtarea(
                     "completada": estado == "completada",
                     "estado": estado,
                     "descripcion": descripcion.strip(),
-                    "prompt": prompt.strip(),
+                    "prompt": prompt.strip() or _prompt_por_defecto(titulo, t.get("titulo", "")),
                     "resultado": "",
                     "repo": repo.strip(),
                     "branch": "",

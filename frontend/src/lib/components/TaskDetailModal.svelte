@@ -152,6 +152,7 @@
 				progresoSub = { ...progresoSub, [sub.id]: { paso: 'completado', detalle: 'Subtarea resuelta', estado: 'completado' } };
 				const t = await api.obtenerTarea(tarea.id);
 				onTaskChange(t);
+				subExpandida = sub.id;
 			} else {
 				mostrarError(res.error || 'No se pudo ejecutar la subtarea');
 				progresoSub = { ...progresoSub, [sub.id]: { paso: 'error', detalle: res.error || 'Error desconocido', estado: 'error' } };
