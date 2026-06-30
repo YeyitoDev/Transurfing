@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X, Bell, Pencil, Trash2, Calendar, Clock, Repeat, CheckSquare, Plus, Sparkles, FileText, Loader2, Heart, Rocket, TrendingUp, Target, Users, Bot, GitCommit, RefreshCw, UploadCloud, AlertCircle, Workflow, ChevronDown, Network } from 'lucide-svelte';
+	import { X, Bell, Pencil, Trash2, Calendar, Clock, Repeat, CheckSquare, Plus, Sparkles, FileText, Loader2, Heart, Rocket, TrendingUp, Target, Users, Bot, GitCommit, RefreshCw, UploadCloud, AlertCircle, Workflow, ChevronDown, Network, Play, Terminal, Github } from 'lucide-svelte';
 	import { marked } from 'marked';
 	import { api } from '../api';
 	import { onTaskChange } from '../stores';
@@ -45,6 +45,9 @@
 	let visualCanvasOpen = $state(false);
 	let mostrarGrafo = $state(false);
 	let mejorandoDesc = $state(false);
+	let githubOpen = $state(false);
+	let ejecutandoCodigo = $state<string | null>(null);
+	let resultadoCodigo = $state<Record<string, { ok: boolean; lenguaje?: string; returncode?: number | null; stdout?: string; stderr?: string; error?: string }>>({});
 
 	const PIPELINE_PASOS: { id: string; label: string }[] = [
 		{ id: 'planificando', label: 'Planifica' },
@@ -337,6 +340,19 @@
 		}
 	}
 
+	async function ejecutarCodigo(sub: Subtarea) {
+		if (!tarea) return;
+		ejecutandoCodigo = sub.id;
+		try {
+			const res = await api.ejecutarCodigoSubtarea(tarea.id, sub.id);
+			resultadoCodigo = { ...resultadoCodigo, [sub.id]: res };
+		} catch (e: any) {
+			resultadoCodigo = { ...resultadoCodigo, [sub.id]: { ok: false, error: e?.message || 'Error al ejecutar el código' } };
+		} finally {
+			ejecutandoCodigo = null;
+		}
+	}
+
 	let done = $derived(tarea?.estado === 'completada');
 	let tieneInforme = $derived(!!tarea?.documento);
 	let esHabito = $derived(tarea?.etiqueta === 'habito' || tarea?.repetible);
@@ -620,6 +636,14 @@
 									</div>
 								</div>
 							{/if}
+											{#if sub.resumen && subExpandida !== sub.id}
+												<button onclick={() => (subExpandida = sub.id)} class="w-full text-left px-2 pb-2 -mt-0.5">
+													<div class="text-[10px] text-indigo-200/90 bg-indigo-500/5 border border-indigo-500/15 rounded px-2 py-1 flex items-start gap-1.5">
+														<Bot size={11} class="shrink-0 mt-0.5 text-indigo-400" />
+														<span class="flex-1">{sub.resumen}{#if sub.score != null} · <span class="font-semibold {scoreColor(sub.score)}">{Math.round(sub.score)}/100</span>{/if}</span>
+													</div>
+												</button>
+											{/if}
 											{#if subExpandida === sub.id}
 												<div class="px-2 pb-2 space-y-2">
 													<div>
@@ -679,6 +703,27 @@
 											<div class="text-[10px] text-slate-300 mt-1 whitespace-pre-wrap">{sub.plan}</div>
 										</details>
 									{/if}
+									<div class="border-t border-border pt-2 space-y-1.5">
+										<div class="flex items-center justify-between">
+											<div class="text-[10px] text-muted flex items-center gap-1"><Terminal size={11} /> Ejecutar y validar código</div>
+											<button onclick={() => ejecutarCodigo(sub)} disabled={ejecutandoCodigo === sub.id} class="text-[10px] bg-green-500/15 text-green-300 border border-green-500/30 rounded-lg px-2 py-1 hover:bg-green-500/25 disabled:opacity-50 flex items-center gap-1">
+												{#if ejecutandoCodigo === sub.id}<Loader2 size={10} class="animate-spin" />{:else}<Play size={10} />{/if}
+												Probar código
+											</button>
+										</div>
+										{#if resultadoCodigo[sub.id]}
+											{@const rc = resultadoCodigo[sub.id]}
+											<div class="rounded-lg border px-2 py-1.5 text-[10px] {rc.ok ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20'}">
+												<div class="flex items-center gap-1.5 font-medium {rc.ok ? 'text-green-400' : 'text-red-400'}">
+													{#if rc.ok}<CheckSquare size={11} /> Funciona{:else}<AlertCircle size={11} /> {rc.error ? 'No se pudo ejecutar' : 'Falló'}{/if}
+													{#if rc.lenguaje}<span class="text-muted font-normal">· {rc.lenguaje}{#if rc.returncode != null} · exit {rc.returncode}{/if}</span>{/if}
+												</div>
+												{#if rc.error}<div class="text-red-300 mt-1">{rc.error}</div>{/if}
+												{#if rc.stdout}<pre class="text-text whitespace-pre-wrap font-mono mt-1 max-h-40 overflow-auto">{rc.stdout}</pre>{/if}
+												{#if rc.stderr}<pre class="text-amber-300 whitespace-pre-wrap font-mono mt-1 max-h-40 overflow-auto">{rc.stderr}</pre>{/if}
+											</div>
+										{/if}
+									</div>
 									<div class="border-t border-border pt-2 space-y-1.5">
 										<div class="text-[10px] text-muted">Mejorar este resultado</div>
 										<textarea rows="2" class="w-full bg-bg border border-border rounded-lg px-2 py-1 text-xs text-text placeholder-muted resize-none" placeholder="Indica qué quieres mejorar (opcional)..." bind:value={instruccionesIterar[sub.id]}></textarea>
@@ -759,25 +804,6 @@
 								{/if}
 							</div>
 						</div>
-
-						<div class="bg-accent/5 border border-accent/20 rounded-xl p-3">
-							<div class="flex items-center justify-between mb-2">
-								<div class="text-xs font-semibold text-text flex items-center gap-1.5">
-									<Sparkles size={14} class="text-accent" /> Resumen del agente
-								</div>
-								<button onclick={generarResumen} disabled={resumenLoading} class="text-[10px] bg-accent text-white rounded-lg px-2.5 py-1.5 flex items-center gap-1 disabled:opacity-50">
-									{#if resumenLoading}<Loader2 size={10} class="animate-spin" />{:else}<Sparkles size={10} />{/if}
-									{resumenLoading ? 'Generando...' : 'Resumen'}
-								</button>
-							</div>
-							{#if resumen}
-								<div class="prose prose-invert prose-sm max-w-none bg-bg border border-border rounded-lg p-3 overflow-y-auto max-h-[400px]">
-									{@html marked.parse(resumen, { async: false })}
-								</div>
-							{:else}
-								<p class="text-[11px] text-muted">Pulsa "Resumen" para que Jarvis te diga qué pasos seguir, qué riesgos hay y qué priorizar.</p>
-							{/if}
-						</div>
 					</div>
 
 					<div>
@@ -785,8 +811,37 @@
 					</div>
 
 					<div>
-						<GitHubTaskPanel {tarea} />
+						<div class="bg-accent/5 border border-accent/20 rounded-xl p-3">
+							<div class="flex items-center justify-between mb-2">
+								<div class="text-xs font-semibold text-text flex items-center gap-1.5">
+									<Sparkles size={14} class="text-accent" /> Resumen del proyecto
+								</div>
+								<button onclick={generarResumen} disabled={resumenLoading} class="text-[10px] bg-accent text-white rounded-lg px-2.5 py-1.5 flex items-center gap-1 disabled:opacity-50">
+									{#if resumenLoading}<Loader2 size={10} class="animate-spin" />{:else}<Sparkles size={10} />{/if}
+									{resumenLoading ? 'Generando...' : 'Resumen'}
+								</button>
+							</div>
+							{#if resumen}
+								<div class="prose prose-invert prose-sm max-w-none bg-bg border border-border rounded-lg p-3 overflow-y-auto max-h-[420px]">
+									{@html marked.parse(resumen, { async: false })}
+								</div>
+							{:else}
+								<p class="text-[11px] text-muted">Pulsa "Resumen" para ver, en 3 líneas, qué se ha avanzado, qué falta y el próximo paso.</p>
+							{/if}
+						</div>
 					</div>
+				</div>
+
+				<div class="mb-4">
+					<button onclick={() => (githubOpen = !githubOpen)} class="w-full flex items-center justify-between bg-card2 border border-border rounded-xl px-3 py-2 text-xs font-semibold text-text hover:border-accent transition-colors">
+						<span class="flex items-center gap-1.5"><Github size={14} /> Conexión GitHub</span>
+						<ChevronDown size={14} class="transition-transform {githubOpen ? 'rotate-180' : ''}" />
+					</button>
+					{#if githubOpen}
+						<div class="mt-2">
+							<GitHubTaskPanel {tarea} />
+						</div>
+					{/if}
 				</div>
 
 				{#if tieneInforme}

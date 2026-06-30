@@ -399,7 +399,11 @@ async def chat_subtareas(
         "<<<RESPUESTA>>>\n"
         "[respuesta natural en 2-3 párrafos, concreta, con preguntas de seguimiento si hace falta]\n"
         "<<<SUBTAREAS>>>\n"
-        "[JSON válido con array de objetos. Cada objeto: {\"titulo\": \"...\", \"prompt\": \"...\", \"archivo\": \"...\"}. El prompt debe ser detallado, como si fuera a enviarse a un agente. El archivo es el path relativo en el repo donde guardar el resultado. Escribe [] si no corresponde crear subtareas.]\n"
+        "[JSON válido con array de objetos. Cada objeto: {\"titulo\": \"...\", \"prompt\": \"...\", \"archivo\": \"...\"}. "
+        "El prompt debe ser AUTÓNOMO y muy detallado para un agente que trabaja solo: incluye (1) objetivo concreto, "
+        "(2) contexto técnico necesario (stack, dependencias, formato de entrada/salida), (3) criterios de aceptación claros, "
+        "y (4) SI ES CÓDIGO, especifica el lenguaje y añade un ejemplo de uso o una prueba mínima para validar que funciona. "
+        "El archivo es el path relativo en el repo donde guardar el resultado. Escribe [] si no corresponde crear subtareas.]\n"
         "<<<PROXIMA_ALTA_VALOR>>>\n"
         "[una sola frase con la próxima acción de mayor valor para la tarea]\n"
         "<<<TITULO_SESION>>>\n"
@@ -522,25 +526,30 @@ async def resumen_tarea(tarea: Dict[str, Any]) -> str:
         cliente = _obtener_cliente()
         modelo = os.getenv("LLM_MODEL", "qwen3.5-plus")
 
-    subtareas_pendientes = [s["titulo"] for s in tarea.get("subtareas", []) if not s.get("completada")]
-    subtareas_text = "\n".join(f"- {s}" for s in subtareas_pendientes) if subtareas_pendientes else "Sin subtareas pendientes."
+    subtareas = tarea.get("subtareas", [])
+    hechas = [s["titulo"] for s in subtareas if s.get("completada")]
+    pendientes = [s["titulo"] for s in subtareas if not s.get("completada")]
+    hechas_text = "\n".join(f"- {s}" for s in hechas) if hechas else "Nada completado aún."
+    pendientes_text = "\n".join(f"- {s}" for s in pendientes) if pendientes else "Sin subtareas pendientes."
     fecha = tarea.get("fecha_limite") or "sin fecha límite"
 
     prompt = (
-        f"Resumen ejecutivo para la tarea del usuario: {tarea['titulo']}.\n"
-        f"Prioridad: {tarea.get('prioridad', 'media')}. Estado: {tarea.get('estado', 'pendiente')}. Progreso: {tarea.get('progreso', 0)}%.\n"
-        f"Descripción: {tarea.get('descripcion', '') or 'Ninguna'}\n"
-        f"Fecha límite: {fecha}\n"
+        f"Tarea: {tarea['titulo']}.\n"
+        f"Progreso: {tarea.get('progreso', 0)}%. Prioridad: {tarea.get('prioridad', 'media')}. Fecha límite: {fecha}.\n"
         f"Objetivo/área: {tarea.get('objetivo', '') or 'no especificado'}\n"
-        f"Subtareas pendientes:\n{subtareas_text}\n\n"
-        "Instrucciones: en 3-4 bullets cortos, di qué debe hacer el usuario ahora, qué riesgos hay si no avanza, y qué priorizar."
+        f"Subtareas COMPLETADAS:\n{hechas_text}\n"
+        f"Subtareas PENDIENTES:\n{pendientes_text}\n\n"
+        "Devuelve un resumen MUY conciso y específico del estado, exactamente con estas tres líneas (sin relleno ni introducción):\n"
+        "**Avance:** <lo que ya está hecho, concreto>\n"
+        "**Falta:** <lo que falta, concreto>\n"
+        "**Próximo paso:** <la acción inmediata de mayor valor>"
     )
 
     try:
         response = await cliente.chat.completions.create(
             model=modelo,
             messages=[
-                {"role": "system", "content": "Eres Jarvis, asistente de productividad. Sé concreto, accionable y directo."},
+                {"role": "system", "content": "Eres Jarvis. Resume el estado de forma breve, concreta y específica. Sin relleno ni saludos."},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.5,

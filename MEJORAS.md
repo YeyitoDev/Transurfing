@@ -137,3 +137,9 @@ No hay tests; los endpoints de ejecución paralela de agentes no tienen límite.
   - **Dashboard** (`/dashboard`): KPIs + tarjetas por proyecto (estado, progreso, faltantes, vencidos, próxima acción); enlace en `BottomNav`.
   - **Feed** (`/feed`): `agente_planes.generar_feed` + `GET /api/feed`; inspiración/novedades por proyecto activo (modelos a probar, recursos, ideas) con tipos y sugerencia accionable.
   - Backend verificado con `py_compile`; subtareas con prompt verificado por prueba funcional.
+- **2026-06-30 (oleada 10)** — Detalle de tarea + ejecución de código:
+  - **Layout del detalle**: la columna 3 ahora muestra el **Resumen del proyecto** (antes GitHub); GitHub pasa a un **acordeón colapsable** menos invasivo bajo las columnas, dejando más espacio a chat y subtareas (`TaskDetailModal.svelte`).
+  - **Resumen conciso**: `resumen_tarea` reescrito a 3 líneas fijas **Avance / Falta / Próximo paso** (incluye subtareas completadas y pendientes).
+  - **Contexto de subtareas**: el prompt de `chat_subtareas` exige prompts autónomos (objetivo, contexto técnico, criterios de aceptación y, si es código, lenguaje + prueba de validación).
+  - **Ver lo que hizo el agente**: el `resumen` del agente se muestra **inline** en cada subtarea con resultado (con score), sin necesidad de expandir.
+  - **Ejecutar y validar código**: nuevo `code_runner_service.py` (extrae el bloque de código, lo corre en temp con timeout; Python y Node) + `POST /api/tareas/{id}/subtareas/{sid}/ejecutar-codigo` + botón **Probar código** que muestra stdout/stderr/exit. Desactivable con `CODE_RUNNER_ENABLED=0`. Verificado: ejecuta Python y devuelve salida.

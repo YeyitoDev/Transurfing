@@ -133,6 +133,15 @@ export const api = {
 			revision?: { score: number; aprobado: boolean; resumen: string; feedback: string };
 			error?: string;
 		}>(`/tareas/${tareaId}/subtareas/${subtareaId}/ejecutar`, 'POST', { modelo }),
+	ejecutarCodigoSubtarea: (tareaId: string, subtareaId: string, codigo = '', lenguaje = '') =>
+		req<{
+			ok: boolean;
+			lenguaje: string;
+			returncode?: number | null;
+			stdout?: string;
+			stderr?: string;
+			error?: string;
+		}>(`/tareas/${tareaId}/subtareas/${subtareaId}/ejecutar-codigo`, 'POST', { codigo, lenguaje }),
 	iterarSubtarea: (tareaId: string, subtareaId: string, instrucciones?: string, modelo?: string) =>
 		req<{
 			ok: boolean;

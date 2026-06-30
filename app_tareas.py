@@ -423,6 +423,26 @@ async def ejecutar_subtarea_endpoint(tarea_id: str, subtarea_id: str, data: Subt
     return res
 
 
+class EjecutarCodigoRequest(BaseModel):
+    codigo: str = ""
+    lenguaje: str = ""
+
+
+@app.post("/api/tareas/{tarea_id}/subtareas/{subtarea_id}/ejecutar-codigo")
+def ejecutar_codigo_subtarea(tarea_id: str, subtarea_id: str, data: EjecutarCodigoRequest):
+    """Ejecuta el código de una subtarea (o el provisto) y devuelve la salida para validar que funciona."""
+    import code_runner_service
+    codigo = data.codigo
+    lenguaje = data.lenguaje
+    if not codigo.strip():
+        sub = storage.obtener_subtarea(subtarea_id)
+        if not sub:
+            raise HTTPException(status_code=404, detail="Subtarea no encontrada")
+        codigo, lang_detect = code_runner_service.extraer_codigo(sub.get("resultado", ""))
+        lenguaje = lenguaje or lang_detect
+    return code_runner_service.ejecutar_codigo(codigo, lenguaje)
+
+
 @app.post("/api/tareas/{tarea_id}/subtareas/{subtarea_id}/iterar")
 async def iterar_subtarea_endpoint(tarea_id: str, subtarea_id: str, data: SubtareaIterarRequest):
     """Re-ejecuta el pipeline mejorando sobre el resultado previo de la subtarea."""
