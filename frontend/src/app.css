@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+	--c-bg: 10 10 11;
+	--c-card: 24 24 27;
+	--c-card2: 30 30 36;
+	--c-border: 39 39 42;
+	--c-accent: 102 126 234;
+	--c-green: 34 197 94;
+	--c-red: 239 68 68;
+	--c-yellow: 234 179 8;
+	--c-muted: 113 113 122;
+	--c-text: 228 228 231;
+}
+
+* {
+	-webkit-tap-highlight-color: transparent;
+}
+
+body {
+	@apply bg-bg text-text font-sans antialiased;
+	overscroll-behavior-y: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+	display: none;
+}
+.no-scrollbar {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+.safe-bottom {
+	padding-bottom: env(safe-area-inset-bottom);
+}

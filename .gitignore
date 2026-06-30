@@ -1,0 +1,44 @@
+# Entorno
+.env
+.venv/
+*.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Datos locales
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+*.pid
+
+# Despliegue
+fly.toml
+deploy.sh
+
+# Node / frontend
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/build/
+frontend-react-backup/node_modules/
+frontend-react-backup/build/
+
+# Compilados
+web/
+dist/
+build/
+
+# macOS
+.DS_Store

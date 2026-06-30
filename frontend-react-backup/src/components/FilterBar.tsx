@@ -1,0 +1,30 @@
+import type { EtiquetaKey } from "../types";
+
+const CHIPS: { key: EtiquetaKey; label: string }[] = [
+  { key: "todas", label: "Todas" },
+  { key: "emprendimiento", label: "Emprendimiento" },
+  { key: "tarea", label: "Tarea" },
+  { key: "habito", label: "Hábito" },
+  { key: "investigacion", label: "Investigación" },
+  { key: "idea", label: "Idea" },
+];
+
+export function FilterBar({ value, onChange }: { value: EtiquetaKey; onChange: (e: EtiquetaKey) => void }) {
+  return (
+    <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+      {CHIPS.map((chip) => (
+        <button
+          key={chip.key}
+          onClick={() => onChange(chip.key)}
+          className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+            value === chip.key
+              ? "bg-accent text-white"
+              : "bg-card2 text-muted border border-border hover:text-text"
+          }`}
+        >
+          {chip.label}
+        </button>
+      ))}
+    </div>
+  );
+}
