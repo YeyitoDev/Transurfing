@@ -60,6 +60,10 @@ CHANGELOG_FILE = PROJECT_DIR / "CHANGELOG.md"
 # CHANGELOG.json se guarda en el volumen persistente para sobrevivir redeploys.
 CHANGELOG_JSON_FILE = DATA_DIR / "CHANGELOG.json"
 
+# Backend de persistencia: "json" (por defecto) o "sqlite" (opt-in).
+STORAGE_BACKEND = os.getenv("STORAGE_BACKEND", "json").strip().lower()
+DB_FILE = Path(os.getenv("DB_PATH") or (DATA_DIR / "tareas.db"))
+
 _lock = threading.Lock()
 
 PRIORIDADES = ("alta", "media", "baja")
@@ -71,15 +75,51 @@ DIAS_SEMANA = ("lun", "mar", "mie", "jue", "vie", "sab", "dom")
 # Lectura / escritura de bajo nivel
 # ---------------------------------------------------------------------------
 
-def _cargar_raw() -> Dict[str, Any]:
-    """Lee el JSON crudo del disco. Devuelve estructura vacía si no existe."""
+def _leer_documento_json() -> Optional[Dict[str, Any]]:
+    """Lee el documento crudo del archivo JSON, o None si no existe/inválido."""
     if not DATA_FILE.exists():
-        return {"tareas": []}
+        return None
     try:
         with DATA_FILE.open("r", encoding="utf-8") as f:
-            data = json.load(f)
+            return json.load(f)
     except (json.JSONDecodeError, OSError):
-        return {"tareas": []}
+        return None
+
+
+def _leer_documento_raw() -> Optional[Dict[str, Any]]:
+    """Lee el documento crudo del backend activo (json o sqlite)."""
+    if STORAGE_BACKEND == "sqlite":
+        import db_backend
+        db_backend.configurar(DB_FILE)
+        data = db_backend.cargar()
+        if data is None:
+            # Migración única: si hay un JSON previo, impórtalo a SQLite.
+            data = _leer_documento_json()
+            if isinstance(data, dict):
+                db_backend.guardar(data)
+        return data
+    return _leer_documento_json()
+
+
+def _escribir_documento_raw(data: Dict[str, Any]) -> None:
+    """Escribe el documento crudo en el backend activo."""
+    if STORAGE_BACKEND == "sqlite":
+        import db_backend
+        db_backend.configurar(DB_FILE)
+        db_backend.guardar(data)
+        return
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = DATA_FILE.with_suffix(".json.tmp")
+    with tmp.open("w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, DATA_FILE)
+
+
+def _cargar_raw() -> Dict[str, Any]:
+    """Carga el documento normalizado desde el backend activo."""
+    data = _leer_documento_raw()
     if not isinstance(data, dict) or "tareas" not in data:
         return {"tareas": [], "recordatorios": []}
     data.setdefault("recordatorios", [])
@@ -142,14 +182,8 @@ def _migrar_numeros(tareas: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]],
 
 
 def _guardar_raw(data: Dict[str, Any]) -> None:
-    """Escribe el JSON de forma atómica (tmp + os.replace)."""
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = DATA_FILE.with_suffix(".json.tmp")
-    with tmp.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, DATA_FILE)
+    """Escribe el documento en el backend activo (JSON atómico o SQLite)."""
+    _escribir_documento_raw(data)
 
 
 def _nuevo_id(prefijo: str) -> str:
