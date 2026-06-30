@@ -129,3 +129,11 @@ No hay tests; los endpoints de ejecución paralela de agentes no tienen límite.
   - **Kanban 'En progreso' real**: flag persistido `en_progreso_manual` (storage `_decorar`/crear/actualizar + `TareaUpdate`/endpoint); `KanbanBoard` lo usa para columnas y el drag asigna pendiente/en_progreso/completada.
   - **Saltar a contexto**: en `CommandPalette`, los resultados de búsqueda semántica con `source=tarea` y `source_id` abren la tarea (`modalStore.openDetail`).
   - **Persistencia SQLite opt-in** (`STORAGE_BACKEND=sqlite`): nuevo `db_backend.py` (documento en una sola fila, ACID + WAL) detrás del seam `_cargar_raw`/`_guardar_raw`, con **migración automática** desde `tareas.json` (`DB_PATH` configurable). Verificado con `py_compile` y prueba funcional (crear + migrar en SQLite). La normalización por entidad queda como follow-up.
+- **2026-06-30 (oleada 9)** — Lote de 7 funcionalidades solicitadas:
+  - **Lienzo**: el bloque se crea con **doble click** (un click ya no crea); `Ctrl/Alt+click` abre el menú radial; nuevo botón **Controles** con leyenda (`VisualCanvas.svelte`).
+  - **GitHub (tarea)**: panel no vinculado condensado a **una sola fila** (input con datalist + Vincular + **Crear** repo). Backend `create_repo` (auto_init) + `POST /api/github/repos`; `commit_file` firma autor/committer con el **nombre real** de la cuenta (cache de `/user`).
+  - **Subtareas**: `storage._prompt_por_defecto` garantiza que **toda** subtarea tenga prompt (crear_tarea, ambas altas y backfill en migración); `TaskDetailModal` **auto-expande** el resultado del agente al resolver.
+  - **Proyecto**: `ProjectGraph.svelte` (mermaid: tarea→subtareas con color por estado) con toggle **Estructura**; **mejorar descripción con IA** (`agente_planes.mejorar_descripcion` + `POST /api/tareas/{id}/mejorar-descripcion` + botón).
+  - **Dashboard** (`/dashboard`): KPIs + tarjetas por proyecto (estado, progreso, faltantes, vencidos, próxima acción); enlace en `BottomNav`.
+  - **Feed** (`/feed`): `agente_planes.generar_feed` + `GET /api/feed`; inspiración/novedades por proyecto activo (modelos a probar, recursos, ideas) con tipos y sugerencia accionable.
+  - Backend verificado con `py_compile`; subtareas con prompt verificado por prueba funcional.

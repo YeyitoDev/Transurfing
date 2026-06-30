@@ -791,6 +791,14 @@ async def agente_buscar(data: AgenteBuscarRequest):
     return await agente_planes.buscar_novedades(data.tema)
 
 
+@app.get("/api/feed")
+async def feed_endpoint():
+    """Genera un feed de inspiración/novedades para los proyectos activos."""
+    import agente_planes
+    tareas = storage.listar_tareas(solo_pendientes=True)
+    return await agente_planes.generar_feed(tareas)
+
+
 class AgenteIdeaRequest(BaseModel):
     prompt: str = Field(min_length=5)
 

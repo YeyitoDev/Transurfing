@@ -247,6 +247,13 @@ export const api = {
 	agentePreguntar: (pregunta: string, k = 5) =>
 		req<AgentePreguntaResultado>('/agente/preguntar', 'POST', { pregunta, k }),
 
+	feed: () =>
+		req<{
+			items: { proyecto: string; tipo: string; titulo: string; resumen: string; sugerencia: string }[];
+			generado_en: string;
+			error?: string;
+		}>('/feed'),
+
 	getGitHubConfig: () => req<{ username: string; configured: boolean; oauth_available: boolean }>('/github/config'),
 	getGitHubDiagnostico: () => req<{ tareas_url: string; oauth_configurado: boolean; callback_url: string; frontend_url: string; github_configurado: boolean; github_username: string; mensaje: string; problemas: string[] }>('/github/diagnostico'),
 	testGitHubCallback: () => req<{ ok: boolean; callback_url: string; mensaje: string }>('/github/callback-test'),

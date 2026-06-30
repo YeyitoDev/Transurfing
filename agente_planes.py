@@ -628,3 +628,74 @@ async def buscar_novedades(tema: str) -> Dict[str, Any]:
     except Exception as exc:
         logger.exception("Error buscando novedades: %s", exc)
         return {"accion": "error", "mensaje": "Ocurrió un error buscando novedades.", "recursos": []}
+
+
+_FEED_SISTEMA = (
+    "Eres un curador de novedades e inspiración para proyectos personales. "
+    "Devuelves SOLO JSON válido, sin markdown ni texto extra."
+)
+
+
+async def generar_feed(tareas: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Genera un feed de inspiración/novedades por proyecto activo usando LLM."""
+    if _usar_groq_llm():
+        cliente = _obtener_cliente_groq()
+        modelo = _modelo_groq_valido(os.getenv("GROQ_LLM_MODEL", "llama-3.3-70b-versatile"))
+    else:
+        cliente = _obtener_cliente()
+        modelo = os.getenv("LLM_MODEL", "qwen3.5-plus")
+
+    activos = [t for t in tareas if t.get("estado") != "completada"][:6]
+    generado_en = date.today().isoformat()
+    if not activos:
+        return {"items": [], "generado_en": generado_en}
+
+    lista = "\n".join(
+        f"- {t['titulo']} (área: {t.get('objetivo', '') or t.get('etiqueta', 'general')})"
+        for t in activos
+    )
+    prompt = (
+        f"Fecha actual: {generado_en}.\n"
+        f"Estos son mis proyectos activos:\n{lista}\n\n"
+        "Para cada proyecto sugiere 1-2 ítems de feed que me mantengan inspirado e informado: "
+        "novedades a vigilar, herramientas o modelos que probar, ideas o recursos relevantes para ese dominio "
+        "(por ejemplo, si el proyecto es de IA, modelos nuevos que valga la pena probar).\n"
+        "Responde SOLO con JSON: {\"items\": [{\"proyecto\": \"<titulo exacto>\", "
+        "\"tipo\": \"modelo|noticia|inspiracion|recurso|consejo\", \"titulo\": \"...\", "
+        "\"resumen\": \"1-2 frases\", \"sugerencia\": \"acción concreta para mi proyecto\"}]}. "
+        "Máximo 10 ítems en total. Español."
+    )
+    contenido = ""
+    try:
+        response = await cliente.chat.completions.create(
+            model=modelo,
+            messages=[
+                {"role": "system", "content": _FEED_SISTEMA},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+            max_tokens=1200,
+        )
+        contenido = (response.choices[0].message.content or "").strip()
+        if contenido.startswith("```"):
+            contenido = "\n".join(l for l in contenido.split("\n") if not l.startswith("```")).strip()
+        datos = json.loads(contenido)
+        crudos = datos.get("items", []) if isinstance(datos, dict) else (datos if isinstance(datos, list) else [])
+        items = []
+        for it in crudos[:12]:
+            if not isinstance(it, dict):
+                continue
+            items.append({
+                "proyecto": str(it.get("proyecto", "")).strip(),
+                "tipo": str(it.get("tipo", "inspiracion")).strip().lower(),
+                "titulo": str(it.get("titulo", "")).strip(),
+                "resumen": str(it.get("resumen", "")).strip(),
+                "sugerencia": str(it.get("sugerencia", "")).strip(),
+            })
+        return {"items": items, "generado_en": generado_en}
+    except json.JSONDecodeError:
+        logger.error("JSON inválido del LLM para feed: %s", contenido[:300])
+        return {"items": [], "generado_en": generado_en, "error": "respuesta no válida"}
+    except Exception as exc:
+        logger.exception("Error generando feed: %s", exc)
+        return {"items": [], "generado_en": generado_en, "error": str(exc)}

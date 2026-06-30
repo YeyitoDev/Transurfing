@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { ListTodo, CheckCircle2, Bell, Columns3, Calendar, Mic, Bot, Github, LayoutDashboard } from 'lucide-svelte';
+	import { ListTodo, CheckCircle2, Bell, Columns3, Calendar, Mic, Bot, Github, LayoutDashboard, Newspaper } from 'lucide-svelte';
 
 	const TABS = [
 		{ href: '/', label: 'Pendientes', icon: ListTodo },
 		{ href: '/dashboard', label: 'Panel', icon: LayoutDashboard },
+		{ href: '/feed', label: 'Feed', icon: Newspaper },
 		{ href: '/completadas', label: 'Completadas', icon: CheckCircle2 },
 		{ href: '/calendario', label: 'Calendario', icon: Calendar },
 		{ href: '/alarmas', label: 'Alarmas', icon: Bell },
