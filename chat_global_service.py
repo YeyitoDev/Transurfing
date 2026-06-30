@@ -460,12 +460,8 @@ async def procesar_mensaje(user_message: str, modelo: Optional[str] = None, arch
 
     cliente, modelo = _cliente_y_modelo(modelo)
     contexto = _tareas_contexto()
-    archivos_texto = ""
-    if archivos:
-        partes = []
-        for a in archivos:
-            partes.append(f"--- {a.get('nombre', 'archivo')} ---\n{a.get('contenido', '')}")
-        archivos_texto = "\n\n".join(partes)
+    import adjuntos_service
+    archivos_texto, _imagenes = await adjuntos_service.procesar_adjuntos(archivos)
     prompt = f"{user_message}\n\nTareas existentes:\n{contexto}"
     if archivos_texto:
         prompt += f"\n\nArchivos adjuntos:\n{archivos_texto}"

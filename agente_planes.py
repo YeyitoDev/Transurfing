@@ -371,17 +371,8 @@ async def chat_subtareas(
 
     subtareas_actuales = "\n".join(f"- {s['titulo']}" for s in tarea.get("subtareas", [])) or "Sin subtareas."
 
-    archivos_texto = ""
-    if archivos:
-        partes = []
-        for a in archivos:
-            nombre = a.get("nombre", "archivo")
-            tipo = a.get("tipo", "text/plain")
-            contenido = a.get("contenido", "")
-            if not contenido:
-                continue
-            partes.append(f"--- ARCHIVO: {nombre} (tipo: {tipo}) ---\n{contenido}\n--- FIN ARCHIVO ---")
-        archivos_texto = "\n\n".join(partes)
+    import adjuntos_service
+    archivos_texto, imagenes = await adjuntos_service.procesar_adjuntos(archivos)
 
     es_primer_mensaje = len(sesion.get("mensajes", [])) == 0 if sesion else True
     prompt = (
@@ -411,16 +402,31 @@ async def chat_subtareas(
     )
 
     try:
-        logger.info("[chat_subtareas] llamando LLM modelo=%s", modelo)
-        response = await cliente.chat.completions.create(
-            model=modelo,
-            messages=[
-                {"role": "system", "content": "Eres un asistente pragmático. Devuelve SIEMPRE las cuatro secciones con los delimitadores exactos."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.6,
-            max_tokens=1200,
-        )
+        logger.info("[chat_subtareas] llamando LLM modelo=%s imagenes=%s", modelo, len(imagenes))
+        sistema = {"role": "system", "content": "Eres un asistente pragmático. Devuelve SIEMPRE las cuatro secciones con los delimitadores exactos."}
+        if imagenes:
+            user_content: Any = [{"type": "text", "text": prompt}]
+            for img in imagenes[:4]:
+                user_content.append({"type": "image_url", "image_url": {"url": img}})
+        else:
+            user_content = prompt
+        try:
+            response = await cliente.chat.completions.create(
+                model=modelo,
+                messages=[sistema, {"role": "user", "content": user_content}],
+                temperature=0.6,
+                max_tokens=1200,
+            )
+        except Exception as exc_vision:
+            if not imagenes:
+                raise
+            logger.warning("[chat_subtareas] el modelo no aceptó imágenes (%s); reintento solo texto", exc_vision)
+            response = await cliente.chat.completions.create(
+                model=modelo,
+                messages=[sistema, {"role": "user", "content": prompt}],
+                temperature=0.6,
+                max_tokens=1200,
+            )
         contenido = response.choices[0].message.content.strip()
         logger.info("[chat_subtareas] raw contenido:\n%s", contenido[:500])
     except Exception as exc:

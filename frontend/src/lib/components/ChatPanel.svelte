@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Send, Plus, MessageSquare, Sparkles, Loader2, CheckSquare, Paperclip, X, Bot } from 'lucide-svelte';
+	import { Send, Plus, MessageSquare, Sparkles, Loader2, CheckSquare, Paperclip, X, Bot, Link2, Globe } from 'lucide-svelte';
 	import type { Tarea, ModeloAgente, ChatAdjunto } from '../types';
 	import { api } from '../api';
 	import { onTaskChange } from '../stores';
@@ -15,6 +15,8 @@
 	let modelo = $state('');
 	let adjuntos = $state<ChatAdjunto[]>([]);
 	let fileInput: HTMLInputElement | null = $state(null);
+	let urlInput = $state('');
+	let mostrarUrl = $state(false);
 
 	let sesiones = $derived(tarea.chat_sesiones || []);
 	let activeSession = $derived(sesiones.find((s) => s.id === activeId) || sesiones[0]);
@@ -53,15 +55,50 @@
 		}
 	}
 
+	function esTexto(tipo: string): boolean {
+		return (
+			tipo.startsWith('text/') ||
+			tipo.includes('json') ||
+			tipo.includes('xml') ||
+			tipo.includes('csv') ||
+			tipo.includes('javascript') ||
+			tipo.includes('markdown') ||
+			tipo.includes('yaml')
+		);
+	}
+
+	function leerDataURL(file: File): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as string);
+			reader.onerror = () => reject(reader.error);
+			reader.readAsDataURL(file);
+		});
+	}
+
 	async function handleFiles(e: Event) {
 		const target = e.target as HTMLInputElement;
 		const files = target.files;
 		if (!files) return;
 		for (const file of Array.from(files)) {
-			const texto = await file.text();
-			adjuntos = [...adjuntos, { nombre: file.name, tipo: file.type || 'text/plain', contenido: texto }];
+			const tipo = file.type || 'text/plain';
+			try {
+				const contenido = esTexto(tipo) ? await file.text() : await leerDataURL(file);
+				adjuntos = [...adjuntos, { nombre: file.name, tipo, contenido }];
+			} catch (err) {
+				console.error('No se pudo leer el archivo', file.name, err);
+			}
 		}
 		if (fileInput) fileInput.value = '';
+	}
+
+	function addUrl() {
+		const u = urlInput.trim();
+		if (!u) return;
+		const url = /^https?:\/\//i.test(u) ? u : `https://${u}`;
+		adjuntos = [...adjuntos, { nombre: url, tipo: 'url', contenido: url }];
+		urlInput = '';
+		mostrarUrl = false;
 	}
 
 	function removeAdjunto(idx: number) {
@@ -175,7 +212,13 @@
 			<div class="flex flex-wrap gap-1.5 mb-2">
 				{#each adjuntos as a, i}
 					<div class="flex items-center gap-1 text-[10px] bg-bg border border-border rounded-lg px-2 py-1">
-						<Paperclip size={10} />
+						{#if a.tipo.startsWith('image/')}
+							<img src={a.contenido} alt={a.nombre} class="w-6 h-6 rounded object-cover" />
+						{:else if a.tipo === 'url'}
+							<Globe size={10} class="text-accent" />
+						{:else}
+							<Paperclip size={10} />
+						{/if}
 						<span class="truncate max-w-[120px]">{a.nombre}</span>
 						<button onclick={() => removeAdjunto(i)} class="text-muted hover:text-red"><X size={10} /></button>
 					</div>
@@ -185,6 +228,17 @@
 		{#if error}
 			<div class="mb-2 text-[10px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
 				{error}
+			</div>
+		{/if}
+		{#if mostrarUrl}
+			<div class="flex items-center gap-2 mb-2">
+				<input
+					class="flex-1 bg-bg border border-border rounded-xl px-3 py-2 text-xs text-text placeholder-muted"
+					placeholder="Pega una URL (artículo, doc, API)…"
+					bind:value={urlInput}
+					onkeydown={(e) => e.key === 'Enter' && addUrl()}
+				/>
+				<button onclick={addUrl} class="bg-accent text-white rounded-xl px-3 py-2 text-[10px]">Añadir</button>
 			</div>
 		{/if}
 		<div class="flex items-center gap-2">
@@ -203,10 +257,18 @@
 				onchange={handleFiles}
 			/>
 			<button
+				onclick={() => (mostrarUrl = !mostrarUrl)}
+				disabled={!activeSession || loading}
+				class="p-2 bg-bg border border-border rounded-xl disabled:opacity-50 {mostrarUrl ? 'text-accent' : 'text-muted hover:text-text'}"
+				title="Añadir URL"
+			>
+				<Link2 size={14} />
+			</button>
+			<button
 				onclick={() => fileInput?.click()}
 				disabled={!activeSession || loading}
 				class="p-2 text-muted hover:text-text bg-bg border border-border rounded-xl disabled:opacity-50"
-				title="Adjuntar archivos"
+				title="Adjuntar imágenes, PDFs o documentos"
 			>
 				<Paperclip size={14} />
 			</button>

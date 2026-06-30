@@ -143,3 +143,8 @@ No hay tests; los endpoints de ejecución paralela de agentes no tienen límite.
   - **Contexto de subtareas**: el prompt de `chat_subtareas` exige prompts autónomos (objetivo, contexto técnico, criterios de aceptación y, si es código, lenguaje + prueba de validación).
   - **Ver lo que hizo el agente**: el `resumen` del agente se muestra **inline** en cada subtarea con resultado (con score), sin necesidad de expandir.
   - **Ejecutar y validar código**: nuevo `code_runner_service.py` (extrae el bloque de código, lo corre en temp con timeout; Python y Node) + `POST /api/tareas/{id}/subtareas/{sid}/ejecutar-codigo` + botón **Probar código** que muestra stdout/stderr/exit. Desactivable con `CODE_RUNNER_ENABLED=0`. Verificado: ejecuta Python y devuelve salida.
+- **2026-06-30 (oleada 11)** — Adjuntos enriquecidos en el chat del card:
+  - Nuevo `adjuntos_service.py`: procesa **URLs** (descarga + extrae texto de HTML/JSON), **PDF** (texto vía `pypdf`), **imágenes** (data URL para modelos con visión) y texto; devuelve `(texto_contexto, imagenes)`.
+  - `chat_subtareas` usa el servicio y envía **imágenes** al modelo (content multimodal) con **fallback automático a solo texto** si el modelo no soporta visión. `chat_global_service` también usa el servicio (URLs/PDF/texto).
+  - `ChatPanel.svelte`: el adjuntar ahora lee imágenes/PDF/binarios como **base64**, muestra **miniaturas** de imágenes, y añade un botón **URL** para pegar enlaces (chip con globo). Los adjuntos no se persisten en el historial (evita inflar el storage).
+  - `pypdf` añadido a `requirements.txt`. Backend verificado con `py_compile` y prueba funcional (texto + imagen).
