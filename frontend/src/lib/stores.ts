@@ -1,4 +1,5 @@
 import { writable, derived } from 'svelte/store';
+import { browser } from '$app/environment';
 import type { Tarea, Recordatorio } from './types';
 
 export const tareasStore = writable<Tarea[]>([]);
@@ -48,6 +49,20 @@ export const themeStore = writable<{
 });
 
 export const notifEnabledStore = writable(false);
+
+const DENSIDAD_KEY = 'app_densidad';
+const densidadInicial: 'comoda' | 'compacta' =
+	browser && localStorage.getItem(DENSIDAD_KEY) === 'compacta' ? 'compacta' : 'comoda';
+export const densidadStore = writable<'comoda' | 'compacta'>(densidadInicial);
+if (browser) {
+	densidadStore.subscribe((v) => {
+		try {
+			localStorage.setItem(DENSIDAD_KEY, v);
+		} catch {
+			/* ignore */
+		}
+	});
+}
 
 export const filteredTareasStore = derived(tareasStore, ($tareas) => $tareas);
 

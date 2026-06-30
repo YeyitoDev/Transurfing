@@ -99,7 +99,7 @@
 	}
 </script>
 
-<div class="h-[180px] flex flex-col bg-card border border-border {etq.border} border-l-4 rounded-2xl overflow-hidden transition-all hover:shadow-lg hover:scale-[1.01] {done ? 'opacity-50' : ''} {vencida ? 'ring-1 ring-red-500/30' : ''}" style={tarea.color ? `border-left-color: ${tarea.color}` : ''}>
+<div class="group {compact ? 'h-[150px]' : 'h-[180px]'} flex flex-col bg-card border border-border {etq.border} border-l-4 rounded-2xl overflow-hidden transition-all hover:shadow-lg hover:scale-[1.01] {done ? 'opacity-50' : ''} {vencida ? 'ring-1 ring-red-500/30' : ''}" style={tarea.color ? `border-left-color: ${tarea.color}` : ''}>
 	<div class="flex-1 flex flex-col p-4 cursor-pointer" onclick={() => modalStore.openDetail(tarea)}>
 		<div class="flex items-start gap-3 min-h-0">
 			<div class="w-6 h-6 min-w-6 mt-0.5 rounded-lg border-2 flex items-center justify-center text-xs transition-all {done ? 'bg-green border-green text-white' : 'border-border hover:border-accent'}" onclick={toggleManual} title={done ? 'Marcar pendiente' : 'Marcar completada'}>
@@ -190,7 +190,7 @@
 
 			<div class="flex items-center justify-between gap-3">
 				<ProgressBar pct={tarea.progreso} />
-				<div class="flex items-center gap-1">
+				<div class="flex items-center gap-1 opacity-100 md:opacity-50 md:group-hover:opacity-100 transition-opacity">
 					{#if tieneInforme}
 						<button class="p-1.5 rounded-lg text-amber-300 hover:text-amber-200 hover:bg-amber-500/10 transition-colors" onclick={(e) => { e.stopPropagation(); docOpen = true; }} title="Ver informe detallado">
 							<FileText size={15} />

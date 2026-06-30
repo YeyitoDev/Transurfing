@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { Bell, Settings, Bot, Github, FileText } from 'lucide-svelte';
+	import { Bell, Settings, Bot, Github, FileText, Search } from 'lucide-svelte';
 	import { useSync } from '../lib/hooks/useSync';
 	import { useTheme } from '../lib/hooks/useTheme';
 	import { requestPermission } from '../lib/hooks/useNotifications';
@@ -13,6 +13,7 @@
 	import ThemeSettings from '../lib/components/ThemeSettings.svelte';
 	import VoiceBot from '../lib/components/VoiceBot.svelte';
 	import GlobalChat from '../lib/components/GlobalChat.svelte';
+	import CommandPalette from '../lib/components/CommandPalette.svelte';
 	import { modalStore } from '../lib/components/modalStore';
 	import type { EtiquetaKey } from '../lib/types';
 	import '../app.css';
@@ -43,6 +44,9 @@
 				<a href="/agentes" class="p-2 rounded-xl text-muted hover:text-accent hover:bg-card2 transition-colors" aria-label="Agentes especializados">
 					<Bot size={20} />
 				</a>
+				<button onclick={() => window.dispatchEvent(new CustomEvent('cmdk:open'))} class="p-2 rounded-xl text-muted hover:text-accent hover:bg-card2 transition-colors" aria-label="Buscar (Ctrl+K)" title="Buscar / navegar (Ctrl+K)">
+					<Search size={20} />
+				</button>
 				<button onclick={() => (showTheme = true)} class="p-2 rounded-xl text-muted hover:text-accent hover:bg-card2 transition-colors" aria-label="Personalizar colores">
 					<Settings size={20} />
 				</button>
@@ -84,6 +88,7 @@
 		</main>
 	</div>
 
+	<CommandPalette />
 	<VoiceBot />
 	<BottomNav />
 	<TaskDetailModal />

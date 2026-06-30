@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X, Bell, Pencil, Trash2, Calendar, Clock, Repeat, CheckSquare, Plus, Sparkles, FileText, Loader2, Heart, Rocket, TrendingUp, Target, Users, Bot, GitCommit, RefreshCw, UploadCloud, AlertCircle, Workflow } from 'lucide-svelte';
+	import { X, Bell, Pencil, Trash2, Calendar, Clock, Repeat, CheckSquare, Plus, Sparkles, FileText, Loader2, Heart, Rocket, TrendingUp, Target, Users, Bot, GitCommit, RefreshCw, UploadCloud, AlertCircle, Workflow, ChevronDown } from 'lucide-svelte';
 	import { marked } from 'marked';
 	import { api } from '../api';
 	import { onTaskChange } from '../stores';
@@ -26,6 +26,7 @@
 	let nuevaSubPrompt = $state('');
 	let nuevaSubArchivo = $state('');
 	let nuevaSubEstado = $state<'pendiente' | 'en_progreso' | 'bloqueada' | 'completada'>('pendiente');
+	let addAvanzado = $state(false);
 	let resumen = $state('');
 	let resumenLoading = $state(false);
 	let loading = $state(false);
@@ -699,21 +700,27 @@
 								</div>
 							{/if}
 							<div class="space-y-2 mt-3 pt-3 border-t border-border">
-								<input class="w-full bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder-muted" placeholder="Título de la nueva subtarea..." bind:value={nuevaSub} onkeydown={(e) => e.key === 'Enter' && addSub()} />
+								<div class="flex gap-2">
+									<input class="flex-1 bg-bg border border-border rounded-lg px-3 py-2 text-sm text-text placeholder-muted" placeholder="Nueva subtarea… (Enter para añadir)" bind:value={nuevaSub} onkeydown={(e) => e.key === 'Enter' && addSub()} />
+									<button onclick={addSub} disabled={loading || !nuevaSub.trim()} class="bg-accent text-white rounded-lg px-3 text-sm hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1">
+										{#if loading}<Loader2 size={14} class="animate-spin" />{:else}<Plus size={16} />{/if}
+										<span class="hidden sm:inline">Añadir</span>
+									</button>
+								</div>
+								<button onclick={() => (addAvanzado = !addAvanzado)} class="text-[11px] text-muted hover:text-text flex items-center gap-1">
+									<ChevronDown size={12} class="transition-transform {addAvanzado ? 'rotate-180' : ''}" /> {addAvanzado ? 'Menos opciones' : 'Más opciones'}
+								</button>
+								{#if addAvanzado}
 								<textarea rows={2} class="w-full bg-bg border border-border rounded-lg px-3 py-2 text-xs text-text placeholder-muted resize-none" placeholder="Descripción (opcional)" bind:value={nuevaSubDesc}></textarea>
 																<textarea rows={3} class="w-full bg-bg border border-border rounded-lg px-3 py-2 text-xs text-text placeholder-muted resize-none font-mono" placeholder="Prompt detallado para el agente (opcional)" bind:value={nuevaSubPrompt}></textarea>
 																<input class="w-full bg-bg border border-border rounded-lg px-3 py-2 text-xs text-text placeholder-muted" placeholder="Archivo destino en repo (opcional)" bind:value={nuevaSubArchivo} />
-								<div class="flex gap-2">
-									<select class="bg-bg border border-border rounded-lg px-2 py-2 text-xs text-text" bind:value={nuevaSubEstado}>
+									<select class="w-full bg-bg border border-border rounded-lg px-2 py-2 text-xs text-text" bind:value={nuevaSubEstado}>
 										<option value="pendiente">Pendiente</option>
 										<option value="en_progreso">En progreso</option>
 										<option value="bloqueada">Bloqueada</option>
 										<option value="completada">Completada</option>
 									</select>
-									<button onclick={addSub} disabled={loading || !nuevaSub.trim()} class="flex-1 bg-accent text-white rounded-lg px-3 text-sm hover:opacity-90 transition-opacity disabled:opacity-50">
-										{#if loading}<Loader2 size={14} class="animate-spin mx-auto" />{:else}<Plus size={16} class="mx-auto" />{/if}
-									</button>
-								</div>
+								{/if}
 							</div>
 						</div>
 
