@@ -85,6 +85,7 @@ export const api = {
 			prioridad: string;
 			fecha_limite: string | null;
 			completada_manual: boolean;
+			en_progreso_manual: boolean;
 			etiqueta: string;
 			repetible: boolean;
 			horas: string[];

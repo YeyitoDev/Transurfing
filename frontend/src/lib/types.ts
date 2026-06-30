@@ -114,6 +114,7 @@ export interface Tarea {
 	github_status: string;
 	github_agent_log: Record<string, unknown>;
 	completada_manual: boolean;
+	en_progreso_manual?: boolean;
 	completada_en: string | null;
 	creada_en: string;
 	numero: number;

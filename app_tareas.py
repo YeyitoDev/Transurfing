@@ -165,6 +165,7 @@ class TareaUpdate(BaseModel):
     prioridad: Optional[str] = None
     fecha_limite: Optional[str] = None
     completada_manual: Optional[bool] = None
+    en_progreso_manual: Optional[bool] = None
     etiqueta: Optional[str] = None
     repetible: Optional[bool] = None
     horas: Optional[List[str]] = None
@@ -307,6 +308,7 @@ def actualizar_tarea(tarea_id: str, data: TareaUpdate):
         objetivo=data.objetivo,
         icono=data.icono,
         color=data.color,
+        en_progreso_manual=data.en_progreso_manual,
     )
     if t is None:
         raise HTTPException(404, "Tarea no encontrada")

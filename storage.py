@@ -236,6 +236,7 @@ def _decorar(tarea: Dict[str, Any]) -> Dict[str, Any]:
         **tarea,
         "icono": tarea.get("icono") or _emoji_por_defecto(tarea.get("titulo", ""), tarea.get("etiqueta", "tarea")),
         "color": tarea.get("color", ""),
+        "en_progreso_manual": bool(tarea.get("en_progreso_manual", False)),
         "subtareas_total": total,
         "subtareas_completadas": completadas,
         "progreso": progreso,
@@ -393,6 +394,7 @@ def crear_tarea(
             "github_status": "",
             "github_agent_log": {},
             "completada_manual": False,
+            "en_progreso_manual": False,
             "completada_en": None,
             "creada_en": date.today().isoformat(),
             "habito_log": [],
@@ -481,6 +483,7 @@ def actualizar_tarea(
     documento: Optional[str] = None,
     icono: Optional[str] = None,
     color: Optional[str] = None,
+    en_progreso_manual: Optional[bool] = None,
 ) -> Optional[Dict[str, Any]]:
     with _lock:
         data = _cargar_raw()
@@ -504,6 +507,8 @@ def actualizar_tarea(
                     t["fecha_limite"] = fecha_limite or None
                 if completada_manual is not None:
                     t["completada_manual"] = bool(completada_manual)
+                if en_progreso_manual is not None:
+                    t["en_progreso_manual"] = bool(en_progreso_manual)
                 if etiqueta is not None and etiqueta in ETIQUETAS:
                     t["etiqueta"] = etiqueta
                 if repetible is not None:

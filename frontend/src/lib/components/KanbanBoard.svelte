@@ -24,12 +24,22 @@
 	}
 
 	async function moverA(colKey: string, id: string) {
-		const completar = colKey === 'completada';
 		const prev = tareas.find((t) => t.id === id);
 		if (!prev) return;
-		onTaskChange({ ...prev, completada_manual: completar, estado: completar ? 'completada' : 'pendiente' } as Tarea);
+		const cambios =
+			colKey === 'completada'
+				? { completada_manual: true }
+				: colKey === 'en_progreso'
+					? { completada_manual: false, en_progreso_manual: true }
+					: { completada_manual: false, en_progreso_manual: false };
+		onTaskChange({
+			...prev,
+			...cambios,
+			estado: colKey === 'completada' ? 'completada' : 'pendiente',
+			en_progreso_manual: colKey === 'en_progreso'
+		} as Tarea);
 		try {
-			const t = await api.actualizarTarea(id, { completada_manual: completar });
+			const t = await api.actualizarTarea(id, cambios);
 			onTaskChange(t);
 		} catch (err) {
 			console.error(err);
@@ -46,8 +56,8 @@
 	}
 
 	const porCol = $derived({
-		pendiente: tareas.filter((t) => t.progreso === 0 && t.estado !== 'completada'),
-		en_progreso: tareas.filter((t) => t.progreso > 0 && t.progreso < 100),
+		pendiente: tareas.filter((t) => t.estado !== 'completada' && !t.en_progreso_manual && t.progreso === 0),
+		en_progreso: tareas.filter((t) => t.estado !== 'completada' && (t.en_progreso_manual || (t.progreso > 0 && t.progreso < 100))),
 		completada: tareas.filter((t) => t.estado === 'completada')
 	});
 </script>
