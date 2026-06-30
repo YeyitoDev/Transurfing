@@ -1,12 +1,13 @@
 <script lang="ts">
-	import { tareasStore } from '../../lib/stores';
+	import { tareasStore, onTaskChange } from '../../lib/stores';
 	import { modalStore } from '../../lib/components/modalStore';
 	import ProgressBar from '../../lib/components/ProgressBar.svelte';
 	import { api } from '../../lib/api';
+	import { rubberband } from '../../lib/actions/rubberband';
 	import { marked } from 'marked';
 	import {
 		CheckCircle2, Loader2, Circle, ListTodo, AlertTriangle, Calendar, Target,
-		Sparkles, TrendingUp, Flame, Award, Clock, Search, X
+		Sparkles, TrendingUp, Flame, Award, Clock, Search, X, Trash2
 	} from 'lucide-svelte';
 	import type { Tarea } from '../../lib/types';
 
@@ -179,6 +180,26 @@
 	let filtrosActivos = $derived(q.trim() !== '' || fEstado !== 'todos' || fEtiqueta !== 'todas' || fPrioridad !== 'todas');
 	function limpiarFiltros() { q = ''; fEstado = 'todos'; fEtiqueta = 'todas'; fPrioridad = 'todas'; orden = 'relevancia'; }
 
+	let seleccion = $state<string[]>([]);
+	let borrando = $state(false);
+	async function eliminarSeleccion() {
+		if (seleccion.length === 0) return;
+		if (!confirm(`¿Eliminar ${seleccion.length} proyecto(s)? Esta acción no se puede deshacer.`)) return;
+		const ids = [...seleccion];
+		borrando = true;
+		seleccion = [];
+		try {
+			for (const id of ids) {
+				await api.eliminarTarea(id);
+				onTaskChange(null, id);
+			}
+		} catch (e) {
+			console.error(e);
+		} finally {
+			borrando = false;
+		}
+	}
+
 	let iaResumen = $state('');
 	let iaLoading = $state(false);
 	let iaError = $state('');
@@ -346,7 +367,7 @@
 	{:else if filtrados.length === 0}
 		<div class="text-center text-muted py-16">Ningún proyecto coincide con los filtros.</div>
 	{:else}
-		<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+		<div use:rubberband={{ itemSelector: '[data-taskid]', onChange: (ids) => (seleccion = ids) }} class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
 			{#each filtrados as t (t.id)}
 				{@const estado = clasificar(t)}
 				{@const meta = ESTADO_META[estado]}
@@ -354,8 +375,9 @@
 				{@const faltan = (t.subtareas_total || 0) - (t.subtareas_completadas || 0)}
 				{@const vencido = t.estado !== 'completada' && t.fecha_limite && t.fecha_limite < hoy}
 				<button
+					data-taskid={t.id}
 					onclick={() => modalStore.openDetail(t)}
-					class="text-left bg-card border border-border rounded-2xl p-4 hover:border-accent transition-colors flex flex-col gap-2"
+					class="text-left bg-card border rounded-2xl p-4 hover:border-accent transition-colors flex flex-col gap-2 {seleccion.includes(t.id) ? 'border-accent ring-2 ring-accent' : 'border-border'}"
 				>
 					<div class="flex items-start justify-between gap-2">
 						<div class="flex items-center gap-2 min-w-0">
@@ -398,6 +420,16 @@
 					{/if}
 				</button>
 			{/each}
+		</div>
+	{/if}
+
+	{#if seleccion.length > 0}
+		<div class="fixed bottom-20 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-card border border-border rounded-2xl shadow-xl px-4 py-2.5">
+			<span class="text-sm font-semibold text-text">{seleccion.length} seleccionado(s)</span>
+			<button onclick={eliminarSeleccion} disabled={borrando} class="flex items-center gap-1.5 text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/30 rounded-lg px-3 py-1.5 hover:bg-red-500/25 disabled:opacity-50">
+				{#if borrando}<Loader2 size={13} class="animate-spin" />{:else}<Trash2 size={13} />{/if} Eliminar
+			</button>
+			<button onclick={() => (seleccion = [])} class="flex items-center gap-1 text-xs text-muted hover:text-text border border-border rounded-lg px-3 py-1.5"><X size={13} /> Cancelar</button>
 		</div>
 	{/if}
 </div>
