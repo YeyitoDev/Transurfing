@@ -153,10 +153,21 @@
 						</div>
 					{:else if semResults.length > 0}
 						{#each semResults as r}
-							<div class="px-3 py-2 rounded-lg hover:bg-card2">
-								<div class="text-xs text-text line-clamp-2">{r.text}</div>
-								<div class="text-[10px] text-muted mt-0.5">{r.source}</div>
-							</div>
+							{@const tarea = r.source === 'tarea' && r.source_id ? tareas.find((t) => t.id === r.source_id) : null}
+							{#if tarea}
+								<button onclick={() => openTask(tarea)} class="w-full text-left px-3 py-2 rounded-lg hover:bg-card2 flex items-start gap-2">
+									{#if tarea.icono}<span class="shrink-0">{tarea.icono}</span>{/if}
+									<div class="min-w-0">
+										<div class="text-xs text-text line-clamp-2">{r.text}</div>
+										<div class="text-[10px] text-accent mt-0.5 truncate">Abrir tarea · {tarea.titulo}</div>
+									</div>
+								</button>
+							{:else}
+								<div class="px-3 py-2 rounded-lg hover:bg-card2">
+									<div class="text-xs text-text line-clamp-2">{r.text}</div>
+									<div class="text-[10px] text-muted mt-0.5">{r.source}</div>
+								</div>
+							{/if}
 						{/each}
 					{:else if q}
 						<button onclick={buscarSemantica} class="w-full text-left px-3 py-2 rounded-lg text-xs text-accent hover:bg-card2">
