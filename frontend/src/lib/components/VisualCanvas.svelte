@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X, Type, Lightbulb, Code, Image, Table, Workflow, Sparkles, Loader2, Save, MousePointer2, Star, Undo2, Clock, Bell, Terminal, LayoutGrid, History, Maximize2, Trash2, ZoomIn, ZoomOut } from 'lucide-svelte';
+	import { X, Type, Lightbulb, Code, Image, Table, Workflow, Sparkles, Loader2, Save, MousePointer2, Star, Undo2, Clock, Bell, Terminal, LayoutGrid, History, Maximize2, Trash2, ZoomIn, ZoomOut, HelpCircle } from 'lucide-svelte';
 	import { api } from '../api';
 	import { onTaskChange } from '../stores';
 	import type { Tarea, TareaCanvas, CanvasBloque, CanvasLink } from '../types';
@@ -58,6 +58,7 @@
 	let mergeTargetId = $state<string | null>(null);
 	let showHistorial = $state(false);
 	let showKanban = $state(false);
+	let showLegend = $state(false);
 	let expandId = $state<string | null>(null);
 	let contentEl: HTMLDivElement | null = $state(null);
 	let dragMoved = false;
@@ -514,6 +515,11 @@
 		if (!e.shiftKey) clearSelection();
 	}
 
+	function onBgDblClick(e: MouseEvent) {
+		if (e.target !== contentEl) return;
+		addBlockAt(e.clientX, e.clientY, selectedTipo);
+	}
+
 	function deleteBlock(id: string) {
 		snapshot();
 		canvas.bloques = canvas.bloques.filter((b) => b.id !== id);
@@ -676,12 +682,10 @@
 			const moved = !!marquee;
 			marquee = null;
 			marqueeStart = null;
-			if (!moved) {
-				if (bgModifier) {
-					openRadial(e.clientX, e.clientY);
-				} else {
-					addBlockAt(e.clientX, e.clientY, selectedTipo);
-				}
+			// Un solo click ya no crea bloques: solo el menú radial (Ctrl/Alt+click).
+			// Para crear un bloque hay que hacer doble click (ver onBgDblClick).
+			if (!moved && bgModifier) {
+				openRadial(e.clientX, e.clientY);
 			}
 		}
 	}
@@ -801,7 +805,7 @@
 		</div>
 
 		<div class="flex items-center gap-2 px-4 py-2 border-b border-border bg-bg/50 overflow-x-auto">
-			<span class="text-[10px] text-muted flex items-center gap-1"><MousePointer2 size={10} /> Herramienta:</span>
+			<span class="text-[10px] text-muted flex items-center gap-1"><MousePointer2 size={10} /> Herramienta <span class="opacity-70">(doble click para crear)</span>:</span>
 			{#each TIPOS as t}
 				{@const Icon = t.icon}
 				<button
@@ -813,13 +817,42 @@
 					<Icon size={12} /> {t.label}
 				</button>
 			{/each}
-			<div class="ml-auto flex items-center gap-1 text-[10px] text-muted">
-				{#if guardando}<Loader2 size={10} class="animate-spin text-accent" />{/if}
-				{guardando ? 'Guardando...' : 'Guardado'}
+			<div class="ml-auto flex items-center gap-2 text-[10px] text-muted">
+				<button
+					onclick={() => (showLegend = !showLegend)}
+					title="Ver controles del lienzo"
+					class="px-2 py-1.5 rounded-lg border flex items-center gap-1 {showLegend
+						? 'bg-accent text-white border-accent'
+						: 'bg-card border-border text-muted hover:text-text'}"
+				>
+					<HelpCircle size={12} /> Controles
+				</button>
+				<span class="flex items-center gap-1">
+					{#if guardando}<Loader2 size={10} class="animate-spin text-accent" />{/if}
+					{guardando ? 'Guardando...' : 'Guardado'}
+				</span>
 			</div>
 		</div>
 
-		<div class="flex-1 flex overflow-hidden">
+		<div class="flex-1 flex overflow-hidden relative">
+			{#if showLegend}
+				<div class="absolute bottom-3 left-3 z-20 w-64 bg-card border border-border rounded-xl shadow-xl p-3 text-[11px] text-muted">
+					<div class="flex items-center justify-between mb-2">
+						<span class="font-semibold text-text flex items-center gap-1"><HelpCircle size={12} /> Controles</span>
+						<button onclick={() => (showLegend = false)} class="text-muted hover:text-text"><X size={12} /></button>
+					</div>
+					<ul class="space-y-1">
+						<li><b class="text-text">Doble click</b> · crear bloque (tipo seleccionado)</li>
+						<li><b class="text-text">Arrastrar fondo</b> · selección múltiple</li>
+						<li><b class="text-text">Ctrl/Alt + click</b> · menú radial</li>
+						<li><b class="text-text">Arrastrar bloque</b> · mover · soltar encima · combinar</li>
+						<li><b class="text-text">Shift + click</b> · añadir a la selección</li>
+						<li><b class="text-text">Ctrl + rueda</b> · zoom</li>
+						<li><b class="text-text">Supr</b> · borrar · <b class="text-text">Ctrl+Z</b> · deshacer</li>
+						<li><b class="text-text">Enlazar</b> · une dos bloques</li>
+					</ul>
+				</div>
+			{/if}
 			<div
 				bind:this={canvasEl}
 				class="flex-1 overflow-auto relative bg-bg"
@@ -832,6 +865,7 @@
 					class="relative origin-top-left"
 					style="width: 3000px; height: 2000px; transform: scale({zoom});"
 					onmousedown={onBgMouseDown}
+					ondblclick={onBgDblClick}
 					role="presentation"
 				>
 					<svg class="absolute inset-0 pointer-events-none" width="3000" height="2000">
