@@ -26,9 +26,7 @@ data/
 *.log
 *.pid
 
-# Despliegue
-fly.toml
-deploy.sh
+# Despliegue: fly.toml y deploy.sh ahora SÍ se versionan (no contienen secretos)
 
 # Node / frontend
 frontend/node_modules/
