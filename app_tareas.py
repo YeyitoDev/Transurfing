@@ -819,6 +819,19 @@ async def feed_endpoint():
     return await agente_planes.generar_feed(tareas)
 
 
+@app.get("/api/feed-vivo")
+async def feed_vivo_endpoint(force: bool = False):
+    """Feed vivo (experimental): búsquedas reales en internet con scoring objetivo y medible."""
+    import feed_vivo_service
+    tareas = storage.listar_tareas(solo_pendientes=True)
+    try:
+        return await feed_vivo_service.generar_feed_vivo(tareas, force=force)
+    except Exception as exc:
+        logger.exception("Error generando feed vivo: %s", exc)
+        return {"experimental": True, "enabled": True, "items": [], "preguntas": [],
+                "error": str(exc), "generado_en": ""}
+
+
 class AgenteIdeaRequest(BaseModel):
     prompt: str = Field(min_length=5)
 

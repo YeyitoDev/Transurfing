@@ -264,6 +264,36 @@ export const api = {
 			error?: string;
 		}>('/feed'),
 
+	feedVivo: (force = false) =>
+		req<{
+			experimental: boolean;
+			enabled: boolean;
+			items: {
+				fuente: string;
+				fuente_label: string;
+				tipo: string;
+				titulo: string;
+				resumen: string;
+				url: string;
+				tema: string;
+				score: number;
+				fecha?: string;
+				senales: { relevancia: number; recencia: number; popularidad: number; autoridad: number };
+				metricas?: { puntos?: number; comentarios?: number };
+			}[];
+			preguntas: string[];
+			panorama?: string;
+			consultas?: { q: string; tema: string; lente: string }[];
+			fuentes?: string[];
+			criterios?: Record<string, number>;
+			ttl_min?: number;
+			generado_en: string;
+			cache?: boolean;
+			rate_limited?: boolean;
+			aviso?: string;
+			error?: string;
+		}>(`/feed-vivo${force ? '?force=true' : ''}`),
+
 	getGitHubConfig: () => req<{ username: string; configured: boolean; oauth_available: boolean }>('/github/config'),
 	getGitHubDiagnostico: () => req<{ tareas_url: string; oauth_configurado: boolean; callback_url: string; frontend_url: string; github_configurado: boolean; github_username: string; mensaje: string; problemas: string[] }>('/github/diagnostico'),
 	testGitHubCallback: () => req<{ ok: boolean; callback_url: string; mensaje: string }>('/github/callback-test'),
