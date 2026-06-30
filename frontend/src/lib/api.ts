@@ -24,7 +24,10 @@ import type {
 const API = '/api';
 
 async function req<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-	const opts: RequestInit = { method, headers: { 'Content-Type': 'application/json' } };
+	const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+	const token = typeof localStorage !== 'undefined' ? localStorage.getItem('api_token') : null;
+	if (token) headers['X-API-Token'] = token;
+	const opts: RequestInit = { method, headers };
 	if (body) opts.body = JSON.stringify(body);
 	console.log(`[api] ${method} ${API + path}`, body);
 	const res = await fetch(API + path, opts);

@@ -347,6 +347,24 @@ async def create_pull_request(
                 "base": base_branch,
             },
         )
+        if res.status_code == 422:
+            # Puede existir ya un PR abierto para esta rama: lo reutilizamos.
+            owner = full.split("/")[0]
+            existing = await client.get(
+                url,
+                headers=_headers(),
+                params={"head": f"{owner}:{head}", "state": "open"},
+            )
+            if existing.status_code == 200 and existing.json():
+                ex = existing.json()[0]
+                return {
+                    "number": ex["number"],
+                    "url": ex["html_url"],
+                    "state": ex["state"],
+                    "title": ex["title"],
+                    "head": ex["head"]["ref"],
+                    "base": ex["base"]["ref"],
+                }
     if res.status_code != 201:
         raise RuntimeError(f"GitHub error {res.status_code}: {res.text}")
     data = res.json()

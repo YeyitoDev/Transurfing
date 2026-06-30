@@ -970,17 +970,63 @@ def eliminar_knowledge(knowledge_id: str) -> bool:
 # API pública: GitHub config
 # ---------------------------------------------------------------------------
 
+def _fernet():
+    """Devuelve un objeto Fernet si hay SECRET_KEY y cryptography; si no, None."""
+    secret = os.getenv("SECRET_KEY")
+    if not secret:
+        return None
+    try:
+        import base64
+        import hashlib
+        from cryptography.fernet import Fernet
+    except Exception:
+        return None
+    key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode("utf-8")).digest())
+    return Fernet(key)
+
+
+def _encrypt_pat(pat: str) -> str:
+    """Cifra el PAT si hay clave disponible; si no, lo devuelve tal cual."""
+    if not pat:
+        return pat
+    f = _fernet()
+    if not f:
+        return pat
+    try:
+        return "enc:" + f.encrypt(pat.encode("utf-8")).decode("ascii")
+    except Exception:
+        return pat
+
+
+def _decrypt_pat(stored: str) -> str:
+    """Descifra un PAT con prefijo 'enc:'; los planos (sin prefijo) se devuelven igual."""
+    if not stored or not stored.startswith("enc:"):
+        return stored or ""
+    f = _fernet()
+    if not f:
+        logging.getLogger(__name__).warning("PAT cifrado pero falta SECRET_KEY/cryptography para descifrar")
+        return ""
+    try:
+        return f.decrypt(stored[4:].encode("ascii")).decode("utf-8")
+    except Exception:
+        logging.getLogger(__name__).warning("No se pudo descifrar el PAT de GitHub")
+        return ""
+
+
 def get_github_config() -> Dict[str, Any]:
     with _lock:
         data = _cargar_raw()
-    return dict(data.get("github_config", {}))
+    cfg = dict(data.get("github_config", {}))
+    if cfg.get("pat"):
+        cfg["pat"] = _decrypt_pat(cfg["pat"])
+    return cfg
 
 
 def set_github_config(pat: str, username: str = "") -> Dict[str, Any]:
     with _lock:
         data = _cargar_raw()
         data["github_config"] = {
-            "pat": pat.strip(),
+            "pat": _encrypt_pat(pat.strip()),
             "username": username.strip(),
         }
         _guardar_raw(data)

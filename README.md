@@ -27,6 +27,22 @@ Abre http://localhost:8077
 
 Los datos se guardan en `tareas_app/data/tareas.json`.
 
+## Correr local en Windows (PowerShell)
+
+```powershell
+python -m venv .venv; .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+./start_dev.ps1   # levanta backend (8077) + Vite (5173) en dos ventanas
+```
+
+## Seguridad (opcional)
+
+Variables de entorno para endurecer la API sin cambiar el comportamiento por defecto:
+
+- `API_AUTH_TOKEN`: si se define, la API exige el header `X-API-Token` en `/api/*` (el frontend lo toma de `localStorage.api_token`). Se eximen `/api/health` y el callback OAuth.
+- `CORS_ORIGINS`: orígenes permitidos separados por comas (por defecto `*`).
+- `SECRET_KEY`: si se define (con `cryptography` instalado), el PAT de GitHub se guarda cifrado en disco.
+
 ## Desplegar en fly.io
 
 Un solo app sirve la API y el frontend. El volumen persistente mantiene el JSON, la memoria vectorial y el changelog.

@@ -290,13 +290,17 @@ export interface AgentePreguntaResultado {
 
 export interface CanvasBloque {
 	id: string;
-	tipo: 'texto' | 'idea' | 'codigo' | 'json' | 'imagen' | 'tabla' | 'diagrama';
+	tipo: 'texto' | 'idea' | 'codigo' | 'json' | 'curl' | 'imagen' | 'tabla' | 'diagrama';
 	x: number;
 	y: number;
 	width: number;
 	height: number;
 	texto?: string;
 	contenido?: any;
+	importante?: boolean;
+	recordatorio?: { at: number; repeat?: string; done?: boolean } | null;
+	kanban?: 'todo' | 'doing' | 'done' | null;
+	kanbanOrder?: number;
 }
 
 export interface CanvasLink {
@@ -305,9 +309,18 @@ export interface CanvasLink {
 	b: string;
 }
 
+export interface CanvasLogEntry {
+	id: string;
+	ts: number;
+	action: string;
+	detail?: string;
+}
+
 export interface TareaCanvas {
 	bloques: CanvasBloque[];
 	links: CanvasLink[];
+	log?: CanvasLogEntry[];
+	view?: { zoom: number };
 }
 
 export interface CanvasInterpretacion {

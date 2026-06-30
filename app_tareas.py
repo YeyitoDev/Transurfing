@@ -12,12 +12,14 @@ Luego abre http://localhost:8077
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import os
 import secrets
 import sys
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional, List, Dict
 
@@ -47,14 +49,47 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 BASE_DIR = Path(__file__).resolve().parent
 WEB_DIR = BASE_DIR / "web"
 
-app = FastAPI(title="Servicio de Tareas", version="2.0")
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Inicialización y limpieza del servicio."""
+    try:
+        storage.asegurar_skill_changelog()
+    except Exception as exc:
+        logger.warning("No se pudo crear skill de changelog: %s", exc)
+    yield
+
+
+app = FastAPI(title="Servicio de Tareas", version="2.0", lifespan=lifespan)
+
+# Orígenes CORS configurables por entorno (por defecto "*" para no romper el uso actual).
+_cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "*").split(",") if o.strip()] or ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Autenticación opcional por token. Si API_AUTH_TOKEN está definido, se exige en /api/*
+# (excepto health y el callback OAuth de GitHub). Si no, el comportamiento es el actual.
+API_AUTH_TOKEN = os.getenv("API_AUTH_TOKEN", "").strip()
+_AUTH_EXEMPT_PREFIXES = ("/api/health", "/api/github/oauth")
+
+
+@app.middleware("http")
+async def _auth_middleware(request: fastapi.Request, call_next):
+    if API_AUTH_TOKEN:
+        path = request.url.path
+        if path.startswith("/api/") and not path.startswith(_AUTH_EXEMPT_PREFIXES):
+            provided = request.headers.get("X-API-Token", "")
+            auth_header = request.headers.get("Authorization", "")
+            if not provided and auth_header.lower().startswith("bearer "):
+                provided = auth_header[7:].strip()
+            if provided != API_AUTH_TOKEN:
+                return fastapi.responses.JSONResponse({"detail": "No autorizado"}, status_code=401)
+    return await call_next(request)
 
 
 # ---------------------------------------------------------------------------
@@ -90,21 +125,19 @@ mgr = ConnectionManager()
 def notify_tareas():
     import asyncio
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.ensure_future(mgr.broadcast({"type": "tareas_changed"}))
+        loop = asyncio.get_running_loop()
     except RuntimeError:
-        pass
+        return
+    loop.create_task(mgr.broadcast({"type": "tareas_changed"}))
 
 
 def notify_recordatorios():
     import asyncio
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            asyncio.ensure_future(mgr.broadcast({"type": "recordatorios_changed"}))
+        loop = asyncio.get_running_loop()
     except RuntimeError:
-        pass
+        return
+    loop.create_task(mgr.broadcast({"type": "recordatorios_changed"}))
 
 
 # ---------------------------------------------------------------------------
@@ -1370,24 +1403,37 @@ def ensure_changelog_skill():
     return {"skill": skill}
 
 
+def _optional_import(name: str):
+    """Importa un módulo opcional (algunos viven en el proyecto padre).
+
+    Devuelve None si no está disponible, en lugar de romper el endpoint.
+    """
+    try:
+        return importlib.import_module(name)
+    except Exception as exc:  # ImportError u otros
+        logger.warning("Módulo opcional '%s' no disponible: %s", name, exc)
+        return None
+
+
 @app.get("/api/voz/config")
 async def voz_config():
     """Devuelve la configuración del motor de voz disponible."""
-    import groq_stt
-    import tts_service
+    groq_stt = _optional_import("groq_stt")
+    tts_service = _optional_import("tts_service")
+    stt_service = _optional_import("stt_service")
     return {
-        "groq": groq_stt.disponible(),
-        "local_whisper": True,
+        "groq": bool(groq_stt and groq_stt.disponible()),
+        "local_whisper": stt_service is not None,
         "speech_api": True,
-        "tts_premium": tts_service.disponible(),
+        "tts_premium": bool(tts_service and tts_service.disponible()),
     }
 
 
 @app.post("/api/voz/tts")
 async def voz_tts(data: dict):
     """Genera audio TTS premium. Si no está disponible, devuelve 503."""
-    import tts_service
-    if not tts_service.disponible():
+    tts_service = _optional_import("tts_service")
+    if not tts_service or not tts_service.disponible():
         raise HTTPException(status_code=503, detail="TTS premium no configurado")
     texto = data.get("texto", "")
     if not texto:
@@ -1417,14 +1463,20 @@ async def voz_transcribir(request: fastapi.Request):
     audio = await request.body()
     if not audio:
         raise HTTPException(status_code=400, detail="No se recibió audio")
+    groq_stt = _optional_import("groq_stt")
+    stt_service = _optional_import("stt_service")
+    if not groq_stt and not stt_service:
+        raise HTTPException(status_code=503, detail="Transcripción no disponible: faltan los módulos de voz (groq_stt/stt_service)")
     try:
-        import groq_stt
-        if groq_stt.disponible():
+        if groq_stt and groq_stt.disponible():
             texto = await groq_stt.transcribir_audio(audio, fmt)
             return {"texto": texto, "motor": "groq"}
-        import stt_service
+        if not stt_service:
+            raise HTTPException(status_code=503, detail="Whisper local no disponible")
         texto = await stt_service.transcribir_audio(audio, fmt)
         return {"texto": texto, "motor": "whisper-local"}
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error("Error transcribiendo audio: %s", exc)
         raise HTTPException(status_code=500, detail=f"Error en transcripción: {exc}")
@@ -1611,15 +1663,6 @@ async def spa_fallback(path: str):
     if file_path.exists() and file_path.is_file():
         return FileResponse(file_path)
     return FileResponse(WEB_DIR / "index.html")
-
-
-@app.on_event("startup")
-def startup_event():
-    """Asegura que existan skills y configuraciones por defecto."""
-    try:
-        storage.asegurar_skill_changelog()
-    except Exception as exc:
-        logger.warning("No se pudo crear skill de changelog: %s", exc)
 
 
 if __name__ == "__main__":
