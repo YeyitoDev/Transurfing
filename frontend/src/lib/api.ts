@@ -43,6 +43,24 @@ async function req<T>(path: string, method = 'GET', body?: unknown): Promise<T> 
 	return data;
 }
 
+function setToken(token: string) {
+	try {
+		localStorage.setItem('api_token', token);
+	} catch {
+		/* ignore */
+	}
+}
+function clearToken() {
+	try {
+		localStorage.removeItem('api_token');
+	} catch {
+		/* ignore */
+	}
+}
+function getToken(): string | null {
+	return typeof localStorage !== 'undefined' ? localStorage.getItem('api_token') : null;
+}
+
 export const api = {
 	listarTareas: () => req<Tarea[]>('/tareas'),
 	obtenerTarea: (id: string) => req<Tarea>(`/tareas/${id}`),
@@ -276,8 +294,12 @@ export const api = {
 	vozConfig: () =>
 		req<{ groq: boolean; local_whisper: boolean; speech_api: boolean; tts_premium: boolean }>('/voz/config'),
 	vozTranscribir: async (audioBlob: Blob) => {
+		const headers: Record<string, string> = {};
+		const token = getToken();
+		if (token) headers['X-API-Token'] = token;
 		const res = await fetch(API + '/voz/transcribir', {
 			method: 'POST',
+			headers,
 			body: audioBlob
 		});
 		if (!res.ok) throw new Error(`Error ${res.status}`);
@@ -289,5 +311,11 @@ export const api = {
 		options?: { modelo?: string; archivos?: { nombre: string; tipo: string; contenido: string }[] }
 	) => req<ChatGlobalResultado>('/chat-global', 'POST', { texto, modelo: options?.modelo, archivos: options?.archivos }),
 	chatGlobalHistorial: () => req<{ historial: ChatGlobalMessage[] }>('/chat-global'),
-	chatGlobalLimpiar: () => req('/chat-global', 'DELETE')
+	chatGlobalLimpiar: () => req('/chat-global', 'DELETE'),
+
+	authStatus: () => req<{ required: boolean }>('/auth/status'),
+	authCheck: () => req<{ ok: boolean }>('/auth/check'),
+	setToken,
+	clearToken,
+	getToken
 };

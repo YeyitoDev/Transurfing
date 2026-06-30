@@ -39,7 +39,7 @@ pip install -r requirements.txt
 
 Variables de entorno para endurecer la API sin cambiar el comportamiento por defecto:
 
-- `API_AUTH_TOKEN`: si se define, la API exige el header `X-API-Token` en `/api/*` (el frontend lo toma de `localStorage.api_token`). Se eximen `/api/health` y el callback OAuth.
+- `API_AUTH_TOKEN`: si se define, la API exige el header `X-API-Token` en `/api/*` (el frontend lo toma de `localStorage.api_token`). Se eximen `/api/health`, `/api/auth/status` y el callback OAuth. Cuando está activo, el frontend muestra una **pantalla de login** que pide la clave y la valida contra `/api/auth/check` (con logout en el header). Si no se define, la app funciona sin login.
 - `CORS_ORIGINS`: orígenes permitidos separados por comas (por defecto `*`).
 - `SECRET_KEY`: si se define (con `cryptography` instalado), el PAT de GitHub se guarda cifrado en disco.
 

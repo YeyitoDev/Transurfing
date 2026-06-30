@@ -75,7 +75,7 @@ app.add_middleware(
 # Autenticación opcional por token. Si API_AUTH_TOKEN está definido, se exige en /api/*
 # (excepto health y el callback OAuth de GitHub). Si no, el comportamiento es el actual.
 API_AUTH_TOKEN = os.getenv("API_AUTH_TOKEN", "").strip()
-_AUTH_EXEMPT_PREFIXES = ("/api/health", "/api/github/oauth")
+_AUTH_EXEMPT_PREFIXES = ("/api/health", "/api/github/oauth", "/api/auth/status")
 
 
 @app.middleware("http")
@@ -224,6 +224,18 @@ class CanvasInterpretarRequest(BaseModel):
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "service": "tareas"}
+
+
+@app.get("/api/auth/status")
+def auth_status():
+    """Indica si la API exige token (login). Exento de autenticación."""
+    return {"required": bool(API_AUTH_TOKEN)}
+
+
+@app.get("/api/auth/check")
+def auth_check():
+    """Valida el token actual: el middleware ya lo exige, así que si responde, es válido."""
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------

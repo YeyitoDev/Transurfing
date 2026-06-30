@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { Bell, Settings, Bot, Github, FileText, Search, Timer } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { Bell, Settings, Bot, Github, FileText, Search, Timer, LogOut } from 'lucide-svelte';
 	import { useSync } from '../lib/hooks/useSync';
 	import { useTheme } from '../lib/hooks/useTheme';
 	import { requestPermission } from '../lib/hooks/useNotifications';
@@ -16,12 +17,45 @@
 	import CommandPalette from '../lib/components/CommandPalette.svelte';
 	import PomodoroWidget from '../lib/components/PomodoroWidget.svelte';
 	import { modalStore } from '../lib/components/modalStore';
+	import Login from '../lib/components/Login.svelte';
+	import { api } from '../lib/api';
 	import type { EtiquetaKey } from '../lib/types';
 	import '../app.css';
 
 	let { children } = $props();
 	useSync();
 	useTheme();
+
+	let authChecked = $state(false);
+	let authRequired = $state(false);
+	let authed = $state(false);
+
+	onMount(async () => {
+		try {
+			const s = await api.authStatus();
+			authRequired = s.required;
+			if (!authRequired) {
+				authed = true;
+			} else {
+				try {
+					await api.authCheck();
+					authed = true;
+				} catch {
+					authed = false;
+				}
+			}
+		} catch {
+			// Si no se puede consultar el estado, no bloqueamos la app.
+			authed = true;
+		} finally {
+			authChecked = true;
+		}
+	});
+
+	function logout() {
+		api.clearToken();
+		location.reload();
+	}
 
 	let showTheme = $state(false);
 	let filtro = $state<EtiquetaKey>('todas');
@@ -32,6 +66,11 @@
 	let isHome = $derived($page.url.pathname === '/');
 </script>
 
+{#if !authChecked}
+	<div class="min-h-screen bg-bg text-text flex items-center justify-center text-muted">Cargando…</div>
+{:else if authRequired && !authed}
+	<Login />
+{:else}
 <div class="min-h-screen bg-bg text-text pb-20">
 	<div class="max-w-5xl mx-auto px-4 sm:px-6">
 		<header class="text-center pt-8 pb-4 relative">
@@ -54,6 +93,11 @@
 				<button onclick={() => (showTheme = true)} class="p-2 rounded-xl text-muted hover:text-accent hover:bg-card2 transition-colors" aria-label="Personalizar colores">
 					<Settings size={20} />
 				</button>
+				{#if authRequired}
+					<button onclick={logout} class="p-2 rounded-xl text-muted hover:text-red-400 hover:bg-card2 transition-colors" aria-label="Cerrar sesión" title="Cerrar sesión">
+						<LogOut size={20} />
+					</button>
+				{/if}
 			</div>
 			<h1 class="text-2xl font-bold">Mis Tareas</h1>
 			<p class="text-sm text-muted mt-1.5">
@@ -104,3 +148,4 @@
 		<ThemeSettings onClose={() => (showTheme = false)} />
 	{/if}
 </div>
+{/if}
