@@ -4,7 +4,7 @@
 	import { onTaskChange } from '../stores';
 	import type { Subtarea } from '../types';
 
-	let { sub, tareaId, onClose }: { sub: Subtarea; tareaId: string; onClose: () => void } = $props();
+	let { sub, onClose }: { sub: Subtarea; onClose: () => void } = $props();
 
 	let nuevoSd = $state('');
 	let addingSd = $state(false);

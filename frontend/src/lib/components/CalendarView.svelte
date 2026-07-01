@@ -109,7 +109,7 @@
 			{#if fecha}
 				{@const tareasDia = getTareasDeFecha($tareasStore, fecha)}
 				<button
-					class="min-h-[80px] p-1.5 rounded-xl border bg-card text-left transition-colors hover:bg-card2 {selectedDate === fecha ? 'ring-1 ring-accent' : ''} {fecha === hoy ? 'bg-accent/5' : ''} {dragOverFecha === fecha ? 'border-accent ring-2 ring-accent/50' : 'border-border'}"
+					class="min-h-[56px] sm:min-h-[80px] p-1.5 rounded-xl border bg-card text-left transition-colors hover:bg-card2 {selectedDate === fecha ? 'ring-1 ring-accent' : ''} {fecha === hoy ? 'bg-accent/5' : ''} {dragOverFecha === fecha ? 'border-accent ring-2 ring-accent/50' : 'border-border'}"
 					onclick={() => (selectedDate = fecha)}
 					ondragover={(e) => { e.preventDefault(); dragOverFecha = fecha; }}
 					ondragleave={() => { if (dragOverFecha === fecha) dragOverFecha = null; }}
@@ -123,7 +123,7 @@
 					</div>
 				</button>
 			{:else}
-				<div class="min-h-[80px]"></div>
+				<div class="min-h-[56px] sm:min-h-[80px]"></div>
 			{/if}
 		{/each}
 	</div>

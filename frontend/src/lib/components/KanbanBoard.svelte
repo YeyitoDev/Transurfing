@@ -62,10 +62,10 @@
 	});
 </script>
 
-<div class="flex gap-3 overflow-x-auto pb-3 -mx-4 px-4">
+<div class="flex gap-3 overflow-x-auto pb-3 -mx-4 px-4 snap-x snap-mandatory">
 	{#each cols as col}
 		<div
-			class="min-w-[260px] w-[260px] bg-card border rounded-2xl p-3 flex flex-col gap-2 transition-colors {dragOverCol === col.key ? 'border-accent ring-2 ring-accent/40' : 'border-border'}"
+			class="min-w-[85vw] w-[85vw] sm:min-w-[280px] sm:w-[280px] snap-center bg-card border rounded-2xl p-3 flex flex-col gap-2 transition-colors {dragOverCol === col.key ? 'border-accent ring-2 ring-accent/40' : 'border-border'}"
 			role="list"
 			ondragover={(e) => { e.preventDefault(); dragOverCol = col.key; }}
 			ondragleave={() => { if (dragOverCol === col.key) dragOverCol = null; }}

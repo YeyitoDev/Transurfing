@@ -1207,7 +1207,7 @@
 {/if}
 
 {#if subSel && tarea}
-	<SubtareaDetalle sub={subSel} tareaId={tarea.id} onClose={() => (subtareaSelId = null)} />
+	<SubtareaDetalle sub={subSel} onClose={() => (subtareaSelId = null)} />
 {/if}
 
 {#if visualCanvasOpen && tarea}
