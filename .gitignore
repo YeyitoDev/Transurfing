@@ -28,7 +28,6 @@ data/
 
 # Despliegue
 fly.toml
-deploy.sh
 
 # Node / frontend
 frontend/node_modules/
