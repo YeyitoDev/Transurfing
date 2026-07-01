@@ -39,6 +39,7 @@ if _PARENT_DIR_STR not in sys.path:
 # Cargar variables de entorno del .env del directorio padre
 load_dotenv(_PARENT_DIR / ".env")
 
+import feed_images_service
 import github_service
 import storage
 import vector_store
@@ -830,7 +831,9 @@ async def feed_endpoint():
     """Genera un feed de inspiración/novedades para los proyectos activos."""
     import agente_planes
     tareas = storage.listar_tareas(solo_pendientes=True)
-    return await agente_planes.generar_feed(tareas)
+    resultado = await agente_planes.generar_feed(tareas)
+    await feed_images_service.enrich_curado(resultado.get("items", []), tareas)
+    return resultado
 
 
 @app.get("/api/feed-vivo")
@@ -839,7 +842,9 @@ async def feed_vivo_endpoint(force: bool = False):
     import feed_vivo_service
     tareas = storage.listar_tareas(solo_pendientes=True)
     try:
-        return await feed_vivo_service.generar_feed_vivo(tareas, force=force)
+        resultado = await feed_vivo_service.generar_feed_vivo(tareas, force=force)
+        await feed_images_service.enrich_vivo(resultado.get("items", []))
+        return resultado
     except Exception as exc:
         logger.exception("Error generando feed vivo: %s", exc)
         return {"experimental": True, "enabled": True, "items": [], "preguntas": [],

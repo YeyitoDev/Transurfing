@@ -6,12 +6,13 @@
 		Rss, FlaskConical, MessageSquare, Globe, ExternalLink, HelpCircle, Eye
 	} from 'lucide-svelte';
 
-	type FeedItem = { proyecto: string; tipo: string; titulo: string; resumen: string; sugerencia: string };
+	type FeedItem = { proyecto: string; tipo: string; titulo: string; resumen: string; sugerencia: string; imagen_url?: string };
 	type Senales = { relevancia: number; recencia: number; popularidad: number; autoridad: number };
 	type VivoItem = {
 		fuente: string; fuente_label: string; tipo: string; titulo: string; resumen: string;
 		url: string; tema: string; score: number; fecha?: string; senales: Senales;
 		metricas?: { puntos?: number; comentarios?: number };
+		imagen_url?: string;
 	};
 	type VivoData = {
 		experimental: boolean; enabled: boolean; items: VivoItem[]; preguntas: string[];
@@ -75,6 +76,11 @@
 		}
 	}
 	const tieneWeb = $derived((vivo?.fuentes || []).some((f) => f.startsWith('web')));
+
+	function hideBrokenImage(e: Event) {
+		const img = e.currentTarget as HTMLImageElement;
+		img.style.display = 'none';
+	}
 
 	async function cargar() {
 		loading = true;
@@ -166,6 +172,15 @@
 					{@const m = meta(it.tipo)}
 					{@const Icon = m.icon}
 					<div class="bg-card border border-border rounded-2xl p-4 flex flex-col gap-2">
+						{#if it.imagen_url}
+							<img
+								src={it.imagen_url}
+								alt={it.titulo}
+								class="w-full aspect-video object-cover rounded-xl"
+								loading="lazy"
+								onerror={hideBrokenImage}
+							/>
+						{/if}
 						<div class="flex items-center justify-between gap-2">
 							<span class="text-[10px] font-medium px-2 py-0.5 rounded-full border flex items-center gap-1 {m.cls}">
 								<Icon size={11} /> {m.label}
@@ -232,6 +247,15 @@
 						rel="noopener noreferrer"
 						class="group bg-card border border-border rounded-2xl p-4 flex flex-col gap-2 hover:border-accent transition-colors"
 					>
+						{#if it.imagen_url}
+							<img
+								src={it.imagen_url}
+								alt={it.titulo}
+								class="w-full aspect-video object-cover rounded-xl"
+								loading="lazy"
+								onerror={hideBrokenImage}
+							/>
+						{/if}
 						<div class="flex items-center justify-between gap-2">
 							<span class="text-[10px] font-medium px-2 py-0.5 rounded-full border flex items-center gap-1 {fm.cls}">
 								<FIcon size={11} /> {fm.label}

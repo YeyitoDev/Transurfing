@@ -278,7 +278,7 @@ export const api = {
 
 	feed: () =>
 		req<{
-			items: { proyecto: string; tipo: string; titulo: string; resumen: string; sugerencia: string }[];
+			items: { proyecto: string; tipo: string; titulo: string; resumen: string; sugerencia: string; imagen_url?: string }[];
 			generado_en: string;
 			error?: string;
 		}>('/feed'),
@@ -299,6 +299,7 @@ export const api = {
 				fecha?: string;
 				senales: { relevancia: number; recencia: number; popularidad: number; autoridad: number };
 				metricas?: { puntos?: number; comentarios?: number };
+				imagen_url?: string;
 			}[];
 			preguntas: string[];
 			panorama?: string;
