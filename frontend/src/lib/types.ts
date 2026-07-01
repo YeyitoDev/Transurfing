@@ -7,6 +7,13 @@ export interface SubtareaIteracion {
 	feedback: string;
 }
 
+export interface Subdetalle {
+	id: string;
+	titulo: string;
+	completada: boolean;
+	nota: string;
+}
+
 export interface Subtarea {
 	id: string;
 	titulo: string;
@@ -26,6 +33,7 @@ export interface Subtarea {
 	resumen?: string;
 	score?: number;
 	iteraciones?: SubtareaIteracion[];
+	subdetalles?: Subdetalle[];
 }
 
 export interface ChatMessage {

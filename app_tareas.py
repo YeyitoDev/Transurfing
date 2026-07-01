@@ -197,6 +197,28 @@ class SubtareaUpdate(BaseModel):
     commit_sha: Optional[str] = None
 
 
+class SubdetalleCreate(BaseModel):
+    titulo: str = Field(min_length=1)
+    nota: Optional[str] = ""
+    completada: Optional[bool] = False
+
+
+class SubdetalleUpdate(BaseModel):
+    titulo: Optional[str] = None
+    completada: Optional[bool] = None
+    nota: Optional[str] = None
+
+
+class SubdetallesReemplazar(BaseModel):
+    items: List[Dict] = Field(default_factory=list)
+
+
+class SintetizarSubtareaRequest(BaseModel):
+    modelo: Optional[str] = None
+    instrucciones: Optional[str] = ""
+    aplicar: Optional[bool] = True
+
+
 class RecordatorioCreate(BaseModel):
     titulo: str = Field(min_length=1)
     fecha_hora: str = Field(min_length=1)  # formato YYYY-MM-DDTHH:MM
@@ -412,6 +434,65 @@ def eliminar_subtarea(subtarea_id: str):
         raise HTTPException(404, "Subtarea no encontrada")
     notify_tareas()
     return t
+
+
+# ---------------------------------------------------------------------------
+# API: Subdetalles (desglose de una subtarea)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/subtareas/{subtarea_id}/subdetalles", status_code=201)
+def agregar_subdetalle(subtarea_id: str, data: SubdetalleCreate):
+    t = storage.agregar_subdetalle(
+        subtarea_id, data.titulo, nota=data.nota or "", completada=bool(data.completada)
+    )
+    if t is None:
+        raise HTTPException(404, "Subtarea no encontrada")
+    notify_tareas()
+    return t
+
+
+@app.patch("/api/subdetalles/{subdetalle_id}")
+def actualizar_subdetalle(subdetalle_id: str, data: SubdetalleUpdate):
+    t = storage.actualizar_subdetalle(
+        subdetalle_id, titulo=data.titulo, completada=data.completada, nota=data.nota
+    )
+    if t is None:
+        raise HTTPException(404, "Subdetalle no encontrado")
+    notify_tareas()
+    return t
+
+
+@app.delete("/api/subdetalles/{subdetalle_id}")
+def eliminar_subdetalle(subdetalle_id: str):
+    t = storage.eliminar_subdetalle(subdetalle_id)
+    if t is None:
+        raise HTTPException(404, "Subdetalle no encontrado")
+    notify_tareas()
+    return t
+
+
+@app.put("/api/subtareas/{subtarea_id}/subdetalles")
+def reemplazar_subdetalles(subtarea_id: str, data: SubdetallesReemplazar):
+    t = storage.reemplazar_subdetalles(subtarea_id, data.items)
+    if t is None:
+        raise HTTPException(404, "Subtarea no encontrada")
+    notify_tareas()
+    return t
+
+
+@app.post("/api/subtareas/{subtarea_id}/sintetizar")
+async def sintetizar_subtarea_endpoint(subtarea_id: str, data: SintetizarSubtareaRequest):
+    """Agente de síntesis: mejora la descripción y genera subdetalles estructurados."""
+    import subtarea_sintesis_service
+    res = await subtarea_sintesis_service.sintetizar_subtarea(
+        subtarea_id,
+        modelo=data.modelo,
+        instrucciones=data.instrucciones or "",
+        aplicar=bool(data.aplicar),
+    )
+    if res.get("ok"):
+        notify_tareas()
+    return res
 
 
 # ---------------------------------------------------------------------------
@@ -844,6 +925,22 @@ async def feed_vivo_endpoint(force: bool = False):
         logger.exception("Error generando feed vivo: %s", exc)
         return {"experimental": True, "enabled": True, "items": [], "preguntas": [],
                 "error": str(exc), "generado_en": ""}
+
+
+class InvestigarRequest(BaseModel):
+    query: str = Field(min_length=1)
+
+
+@app.post("/api/feed-vivo/investigar")
+async def investigar_feed_endpoint(data: InvestigarRequest):
+    """Investiga un tema/pregunta concreto bajo demanda (búsquedas reales + preguntas de seguimiento)."""
+    import feed_vivo_service
+    try:
+        return await feed_vivo_service.investigar_tema(data.query)
+    except Exception as exc:
+        logger.exception("Error investigando tema: %s", exc)
+        return {"enabled": True, "query": data.query, "items": [], "preguntas": [],
+                "panorama": "", "error": str(exc), "generado_en": ""}
 
 
 class AgenteIdeaRequest(BaseModel):

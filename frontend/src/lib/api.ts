@@ -125,6 +125,30 @@ export const api = {
 		}>
 	) => req<Tarea>(`/subtareas/${id}`, 'PATCH', data),
 	eliminarSubtarea: (id: string) => req<Tarea>(`/subtareas/${id}`, 'DELETE'),
+	agregarSubdetalle: (subtareaId: string, titulo: string, nota = '') =>
+		req<Tarea>(`/subtareas/${subtareaId}/subdetalles`, 'POST', { titulo, nota }),
+	actualizarSubdetalle: (
+		id: string,
+		data: Partial<{ titulo: string; completada: boolean; nota: string }>
+	) => req<Tarea>(`/subdetalles/${id}`, 'PATCH', data),
+	eliminarSubdetalle: (id: string) => req<Tarea>(`/subdetalles/${id}`, 'DELETE'),
+	reemplazarSubdetalles: (
+		subtareaId: string,
+		items: { titulo: string; nota?: string; completada?: boolean }[]
+	) => req<Tarea>(`/subtareas/${subtareaId}/subdetalles`, 'PUT', { items }),
+	sintetizarSubtarea: (
+		subtareaId: string,
+		options?: { modelo?: string; instrucciones?: string; aplicar?: boolean }
+	) =>
+		req<{
+			ok: boolean;
+			error?: string;
+			descripcion: string;
+			resumen: string;
+			subdetalles: { titulo: string; nota: string }[];
+			aplicado: boolean;
+			tarea?: Tarea;
+		}>(`/subtareas/${subtareaId}/sintetizar`, 'POST', options || {}),
 	ejecutarSubtarea: (tareaId: string, subtareaId: string, modelo?: string) =>
 		req<{
 			ok: boolean;
@@ -312,6 +336,30 @@ export const api = {
 			aviso?: string;
 			error?: string;
 		}>(`/feed-vivo${force ? '?force=true' : ''}`),
+
+	investigarFeed: (query: string) =>
+		req<{
+			enabled: boolean;
+			query: string;
+			items: {
+				fuente: string;
+				fuente_label: string;
+				tipo: string;
+				titulo: string;
+				resumen: string;
+				url: string;
+				tema: string;
+				score: number;
+				fecha?: string;
+				senales: { relevancia: number; recencia: number; popularidad: number; autoridad: number };
+				metricas?: { puntos?: number; comentarios?: number };
+			}[];
+			preguntas: string[];
+			panorama?: string;
+			fuentes?: string[];
+			generado_en: string;
+			error?: string;
+		}>('/feed-vivo/investigar', 'POST', { query }),
 
 	getGitHubConfig: () => req<{ username: string; configured: boolean; oauth_available: boolean }>('/github/config'),
 	getGitHubDiagnostico: () => req<{ tareas_url: string; oauth_configurado: boolean; callback_url: string; frontend_url: string; github_configurado: boolean; github_username: string; mensaje: string; problemas: string[] }>('/github/diagnostico'),

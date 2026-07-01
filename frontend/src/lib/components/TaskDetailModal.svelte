@@ -8,7 +8,8 @@
 	import ChatPanel from './ChatPanel.svelte';
 	import GitHubTaskPanel from './GitHubTaskPanel.svelte';
 	import VisualCanvas from './VisualCanvas.svelte';
-	import ProjectGraph from './ProjectGraph.svelte';
+	import ProjectFlow from './ProjectFlow.svelte';
+	import SubtareaDetalle from './SubtareaDetalle.svelte';
 	import type { Tarea, Subtarea } from '../types';
 
 	const ETIQUETA_LABEL: Record<string, string> = {
@@ -44,6 +45,8 @@
 	let verHistorial = $state<string | null>(null);
 	let visualCanvasOpen = $state(false);
 	let mostrarGrafo = $state(false);
+	let subtareaSelId = $state<string | null>(null);
+	let subSel = $derived(tarea?.subtareas.find((s) => s.id === subtareaSelId) || null);
 	let mejorandoDesc = $state(false);
 	let githubOpen = $state(false);
 	let ejecutandoCodigo = $state<string | null>(null);
@@ -595,8 +598,8 @@
 </script>
 
 {#if tarea}
-	<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 animate-fade-in p-4" onclick={modalStore.closeDetail}>
-		<div class="bg-card border border-border rounded-2xl w-full max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-[1400px] max-h-[92vh] flex flex-col animate-slide-up" onclick={(e) => e.stopPropagation()}>
+	<div class="fixed inset-0 z-[60] flex items-stretch sm:items-center justify-center bg-black/70 animate-fade-in p-0 sm:p-4" onclick={modalStore.closeDetail}>
+		<div class="bg-card border border-border rounded-none sm:rounded-2xl w-full max-w-2xl md:max-w-4xl lg:max-w-6xl xl:max-w-[1400px] h-full sm:h-auto max-h-full sm:max-h-[92vh] flex flex-col animate-slide-up" onclick={(e) => e.stopPropagation()}>
 			<div class="flex items-center justify-between px-5 py-3.5 border-b border-border">
 				<div class="text-sm font-semibold">Detalle de tarea</div>
 				<div class="flex items-center gap-2">
@@ -604,13 +607,13 @@
 						onclick={() => (mostrarGrafo = !mostrarGrafo)}
 						class="flex items-center gap-1.5 text-[11px] font-medium bg-card2 hover:bg-accent/10 text-text hover:text-accent border border-border rounded-lg px-3 py-1.5 transition-colors {mostrarGrafo ? 'text-accent border-accent' : ''}"
 					>
-						<Network size={14} /> Estructura
+						<Network size={14} /> <span class="hidden sm:inline">Estructura</span>
 					</button>
 					<button
 						onclick={() => (visualCanvasOpen = true)}
 						class="flex items-center gap-1.5 text-[11px] font-medium bg-card2 hover:bg-accent/10 text-text hover:text-accent border border-border rounded-lg px-3 py-1.5 transition-colors"
 					>
-						<Workflow size={14} /> Lienzo visual
+						<Workflow size={14} /> <span class="hidden sm:inline">Lienzo visual</span>
 					</button>
 					<button onclick={modalStore.closeDetail} class="text-muted hover:text-text">
 						<X size={20} />
@@ -678,7 +681,7 @@
 				</div>
 
 				{#if mostrarGrafo}
-					<ProjectGraph {tarea} />
+					<ProjectFlow {tarea} onSelect={(s) => (subtareaSelId = s.id)} />
 				{/if}
 
 				{#if esHabito}
@@ -1201,6 +1204,10 @@
 			</div>
 		</div>
 	</div>
+{/if}
+
+{#if subSel && tarea}
+	<SubtareaDetalle sub={subSel} tareaId={tarea.id} onClose={() => (subtareaSelId = null)} />
 {/if}
 
 {#if visualCanvasOpen && tarea}

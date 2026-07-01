@@ -3,7 +3,7 @@
 	import { api } from '../../lib/api';
 	import {
 		Sparkles, Loader2, RefreshCw, Newspaper, Lightbulb, Cpu, Wrench, BookOpen,
-		Rss, FlaskConical, MessageSquare, Globe, ExternalLink, HelpCircle, Eye
+		Rss, FlaskConical, MessageSquare, Globe, ExternalLink, HelpCircle, Eye, Search, Compass, X
 	} from 'lucide-svelte';
 
 	type FeedItem = { proyecto: string; tipo: string; titulo: string; resumen: string; sugerencia: string };
@@ -104,6 +104,35 @@
 		}
 	}
 
+	// --- Investigación bajo demanda (clic en preguntas o búsqueda libre) ---
+	let consulta = $state('');
+	let investigacion = $state<Awaited<ReturnType<typeof api.investigarFeed>> | null>(null);
+	let investigando = $state(false);
+	let investigError = $state('');
+
+	async function investigar(q: string) {
+		const query = (q || '').trim();
+		if (!query || investigando) return;
+		consulta = query;
+		investigando = true;
+		investigError = '';
+		try {
+			const res = await api.investigarFeed(query);
+			investigacion = res;
+			if (res.error) investigError = 'La investigación se generó parcialmente.';
+		} catch (e: any) {
+			investigError = e?.message || 'No se pudo investigar.';
+		} finally {
+			investigando = false;
+		}
+	}
+
+	function limpiarInvestigacion() {
+		investigacion = null;
+		consulta = '';
+		investigError = '';
+	}
+
 	function setVista(v: 'curado' | 'vivo') {
 		vista = v;
 		if (v === 'vivo' && !vivoCargado) {
@@ -193,6 +222,60 @@
 			</div>
 		</div>
 
+		<form onsubmit={(e) => { e.preventDefault(); investigar(consulta); }} class="flex items-center gap-2">
+			<div class="relative flex-1">
+				<Search size={15} class="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+				<input bind:value={consulta} placeholder="Investiga cualquier tema o pregunta…" class="w-full bg-card border border-border rounded-xl pl-9 pr-3 py-2.5 text-sm text-text focus:outline-none focus:border-accent" />
+			</div>
+			<button type="submit" disabled={investigando || !consulta.trim()} class="shrink-0 flex items-center gap-1.5 text-xs font-medium bg-accent text-white rounded-xl px-3.5 py-2.5 disabled:opacity-50">
+				{#if investigando}<Loader2 size={14} class="animate-spin" />{:else}<Compass size={14} />{/if}
+				<span class="hidden sm:inline">Investigar</span>
+			</button>
+		</form>
+
+		{#if investigacion}
+			<div class="rounded-2xl border border-accent/30 bg-accent/5 p-4 space-y-3">
+				<div class="flex items-center justify-between gap-2">
+					<div class="text-xs font-semibold text-accent flex items-center gap-1.5 min-w-0"><Compass size={14} class="shrink-0" /> <span class="truncate">Investigación: «{investigacion.query}»</span></div>
+					<button onclick={limpiarInvestigacion} class="text-muted hover:text-text shrink-0" aria-label="Cerrar investigación"><X size={16} /></button>
+				</div>
+				{#if investigError}<div class="text-[11px] text-amber-400">{investigError}</div>{/if}
+				{#if investigando}
+					<div class="text-center text-muted py-6 flex flex-col items-center gap-2"><Loader2 size={20} class="animate-spin" /> Investigando…</div>
+				{:else}
+					{#if investigacion.panorama}<p class="text-sm text-text">{investigacion.panorama}</p>{/if}
+					{#if investigacion.items?.length}
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+							{#each investigacion.items as it (it.url)}
+								{@const fm = fmeta(it.fuente)}
+								{@const FIcon = fm.icon}
+								<a href={it.url} target="_blank" rel="noopener noreferrer" class="group bg-card border border-border rounded-xl p-3 flex flex-col gap-1.5 hover:border-accent transition-colors">
+									<div class="flex items-center justify-between gap-2">
+										<span class="text-[10px] font-medium px-2 py-0.5 rounded-full border flex items-center gap-1 {fm.cls}"><FIcon size={11} /> {fm.label}</span>
+										<span class="text-[10px] font-bold px-2 py-0.5 rounded-full border {scoreCls(it.score)}">{it.score}</span>
+									</div>
+									<div class="text-sm font-semibold text-text group-hover:text-accent flex items-start gap-1"><span>{it.titulo}</span><ExternalLink size={12} class="mt-0.5 shrink-0 opacity-0 group-hover:opacity-60" /></div>
+									{#if it.resumen}<div class="text-xs text-muted line-clamp-3">{it.resumen}</div>{/if}
+								</a>
+							{/each}
+						</div>
+					{:else}
+						<div class="text-sm text-muted">Sin resultados para esta búsqueda. Prueba con otros términos.</div>
+					{/if}
+					{#if investigacion.preguntas?.length}
+						<div class="pt-2 border-t border-border">
+							<div class="text-[11px] font-semibold text-muted mb-1.5">Seguir descubriendo:</div>
+							<div class="flex flex-wrap gap-1.5">
+								{#each investigacion.preguntas as p}
+									<button onclick={() => investigar(p)} class="text-[11px] text-left bg-card border border-border rounded-full px-2.5 py-1 text-muted hover:text-accent hover:border-accent transition-colors">{p}</button>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				{/if}
+			</div>
+		{/if}
+
 		{#if vivoLoading && !vivo}
 			<div class="text-center text-muted py-16 flex flex-col items-center gap-2">
 				<Loader2 size={22} class="animate-spin" /> Buscando lo más relevante del mundo…
@@ -213,10 +296,14 @@
 
 			{#if vivo.preguntas?.length}
 				<div class="rounded-2xl border border-border bg-card p-4">
-					<div class="text-xs font-semibold flex items-center gap-1.5 mb-2"><HelpCircle size={14} class="text-accent" /> Preguntas para explorar</div>
-					<ul class="space-y-1.5">
+					<div class="text-xs font-semibold flex items-center gap-1.5 mb-2"><HelpCircle size={14} class="text-accent" /> Preguntas para seguir descubriendo</div>
+					<ul class="space-y-1">
 						{#each vivo.preguntas as p}
-							<li class="text-sm text-muted flex gap-2"><span class="text-accent shrink-0">·</span><span>{p}</span></li>
+							<li>
+								<button onclick={() => investigar(p)} class="w-full text-left text-sm text-muted hover:text-accent flex gap-2 rounded-lg px-2 py-1.5 hover:bg-accent/5 transition-colors">
+									<Search size={13} class="text-accent shrink-0 mt-0.5" /><span>{p}</span>
+								</button>
+							</li>
 						{/each}
 					</ul>
 				</div>

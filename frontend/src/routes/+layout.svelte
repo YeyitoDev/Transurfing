@@ -73,15 +73,15 @@
 {:else}
 <div class="min-h-screen bg-bg text-text pb-20">
 	<div class="max-w-5xl mx-auto px-4 sm:px-6">
-		<header class="text-center pt-8 pb-4 relative">
-			<div class="absolute right-0 top-8 flex items-center gap-1">
-				<a href="/changelog" class="p-2 rounded-xl text-muted hover:text-accent hover:bg-card2 transition-colors" aria-label="Changelog y QA">
+		<header class="text-center pt-5 pb-3 sm:pt-8 sm:pb-4 relative">
+			<div class="absolute right-0 top-4 sm:top-8 flex items-center gap-0.5 sm:gap-1">
+				<a href="/changelog" class="hidden sm:inline-flex p-2 rounded-xl text-muted hover:text-accent hover:bg-card2 transition-colors" aria-label="Changelog y QA">
 					<FileText size={20} />
 				</a>
-				<a href="/github" class="p-2 rounded-xl text-muted hover:text-accent hover:bg-card2 transition-colors" aria-label="Configuración GitHub">
+				<a href="/github" class="hidden sm:inline-flex p-2 rounded-xl text-muted hover:text-accent hover:bg-card2 transition-colors" aria-label="Configuración GitHub">
 					<Github size={20} />
 				</a>
-				<a href="/agentes" class="p-2 rounded-xl text-muted hover:text-accent hover:bg-card2 transition-colors" aria-label="Agentes especializados">
+				<a href="/agentes" class="hidden sm:inline-flex p-2 rounded-xl text-muted hover:text-accent hover:bg-card2 transition-colors" aria-label="Agentes especializados">
 					<Bot size={20} />
 				</a>
 				<button onclick={() => window.dispatchEvent(new CustomEvent('cmdk:open'))} class="p-2 rounded-xl text-muted hover:text-accent hover:bg-card2 transition-colors" aria-label="Buscar (Ctrl+K)" title="Buscar / navegar (Ctrl+K)">
@@ -99,8 +99,8 @@
 					</button>
 				{/if}
 			</div>
-			<h1 class="text-2xl font-bold">Mis Tareas</h1>
-			<p class="text-sm text-muted mt-1.5">
+			<h1 class="text-xl sm:text-2xl font-bold">Mis Tareas</h1>
+			<p class="text-xs sm:text-sm text-muted mt-1 sm:mt-1.5">
 				{pendientesCount} pendientes · {completadasCount} completadas · {$recordatoriosStore.length} alarmas
 				{#if proximas.length > 0}
 					<span class="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 animate-pulse">{proximas.length} próximas</span>

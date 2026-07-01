@@ -561,3 +561,62 @@ async def generar_feed_vivo(tareas: List[Dict[str, Any]], force: bool = False) -
     if items:
         _guardar_cache(payload)
     return payload
+
+
+async def investigar_tema(query: str, generar_seguimiento: bool = True) -> Dict[str, Any]:
+    """Investiga un tema/pregunta concreto bajo demanda (sin cache).
+
+    Reutiliza las fuentes y el scoring del feed vivo para devolver resultados
+    puntuados de una sola consulta, más preguntas de seguimiento para "seguir
+    descubriendo".
+    """
+    q = (query or "").strip()
+    if not ENABLED:
+        return {"enabled": False, "query": q, "items": [], "preguntas": [], "panorama": ""}
+    if not q:
+        return {"enabled": True, "query": q, "items": [], "preguntas": [], "panorama": "", "error": "Consulta vacía"}
+
+    proveedor, api_key = _proveedor_web()
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/json"}
+    crudos: List[Dict[str, Any]] = []
+    async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, headers=headers, follow_redirects=True) as client:
+        tareas_fetch = [
+            _fetch_hackernews(client, q, q),
+            _fetch_arxiv(client, q, q),
+            _fetch_wikipedia(client, q, q),
+        ]
+        if proveedor == "tavily" and api_key:
+            tareas_fetch.append(_fetch_tavily(client, q, q, api_key))
+        elif proveedor == "brave" and api_key:
+            tareas_fetch.append(_fetch_brave(client, q, q, api_key))
+        resultados = await asyncio.gather(*tareas_fetch, return_exceptions=True)
+
+    for bloque in resultados:
+        if isinstance(bloque, Exception) or not bloque:
+            continue
+        for it in bloque:
+            if it.get("titulo") and it.get("url"):
+                _puntuar(it, q)
+                crudos.append(it)
+
+    mejores: Dict[str, Dict[str, Any]] = {}
+    for it in crudos:
+        clave = _norm_url(it["url"]) or it["titulo"].lower()
+        if clave not in mejores or it["score"] > mejores[clave]["score"]:
+            mejores[clave] = it
+    items = sorted(mejores.values(), key=lambda x: x["score"], reverse=True)[:MAX_ITEMS]
+
+    preguntas: List[str] = []
+    panorama = ""
+    if generar_seguimiento and items:
+        preguntas, panorama = await _generar_preguntas(items)
+
+    return {
+        "enabled": True,
+        "query": q,
+        "items": items,
+        "preguntas": preguntas,
+        "panorama": panorama,
+        "fuentes": sorted({it["fuente"] for it in items}),
+        "generado_en": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }

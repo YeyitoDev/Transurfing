@@ -178,6 +178,9 @@ def _migrar_numeros(tareas: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]],
             if "commit_en" not in s:
                 s["commit_en"] = None
                 cambiado = True
+            if "subdetalles" not in s:
+                s["subdetalles"] = []
+                cambiado = True
     return tareas, cambiado
 
 
@@ -459,6 +462,7 @@ def crear_tarea(
                     "commit_pendiente": False,
                     "commit_sha": None,
                     "commit_en": None,
+                    "subdetalles": [],
                 }
                 for s in (subtareas or []) if s.strip()
             ],
@@ -506,6 +510,7 @@ def agregar_subtarea_por_numero(
                     "commit_pendiente": False,
                     "commit_sha": None,
                     "commit_en": None,
+                    "subdetalles": [],
                 })
                 _sync_completada_en(t)
                 _guardar_raw(data)
@@ -623,6 +628,7 @@ def agregar_subtarea(
                     "commit_pendiente": False,
                     "commit_sha": None,
                     "commit_en": None,
+                    "subdetalles": [],
                 })
                 _sync_completada_en(t)
                 _guardar_raw(data)
@@ -721,6 +727,111 @@ def eliminar_subtarea(subtarea_id: str) -> Optional[Dict[str, Any]]:
                 _guardar_raw(data)
                 return _decorar(t)
     return None
+
+
+# ---------------------------------------------------------------------------
+# API pública: Subdetalles (desglose interno de una subtarea)
+# ---------------------------------------------------------------------------
+
+def _buscar_subtarea_raw(data: Dict[str, Any], subtarea_id: str):
+    """Devuelve (tarea, subtarea) crudas para un subtarea_id, o (None, None)."""
+    for t in data["tareas"]:
+        for s in t.get("subtareas", []):
+            if s["id"] == subtarea_id:
+                return t, s
+    return None, None
+
+
+def agregar_subdetalle(
+    subtarea_id: str,
+    titulo: str,
+    nota: str = "",
+    completada: bool = False,
+) -> Optional[Dict[str, Any]]:
+    titulo = (titulo or "").strip()
+    if not titulo:
+        return None
+    with _lock:
+        data = _cargar_raw()
+        t, s = _buscar_subtarea_raw(data, subtarea_id)
+        if s is None:
+            return None
+        s.setdefault("subdetalles", []).append({
+            "id": _nuevo_id("sd"),
+            "titulo": titulo,
+            "completada": bool(completada),
+            "nota": (nota or "").strip(),
+        })
+        _guardar_raw(data)
+        return _decorar(t)
+
+
+def actualizar_subdetalle(
+    subdetalle_id: str,
+    titulo: Optional[str] = None,
+    completada: Optional[bool] = None,
+    nota: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    with _lock:
+        data = _cargar_raw()
+        for t in data["tareas"]:
+            for s in t.get("subtareas", []):
+                for sd in s.get("subdetalles", []):
+                    if sd["id"] == subdetalle_id:
+                        if titulo is not None:
+                            sd["titulo"] = titulo.strip()
+                        if completada is not None:
+                            sd["completada"] = bool(completada)
+                        if nota is not None:
+                            sd["nota"] = nota.strip()
+                        _guardar_raw(data)
+                        return _decorar(t)
+    return None
+
+
+def eliminar_subdetalle(subdetalle_id: str) -> Optional[Dict[str, Any]]:
+    with _lock:
+        data = _cargar_raw()
+        for t in data["tareas"]:
+            for s in t.get("subtareas", []):
+                subs = s.get("subdetalles", [])
+                nuevas = [sd for sd in subs if sd["id"] != subdetalle_id]
+                if len(nuevas) != len(subs):
+                    s["subdetalles"] = nuevas
+                    _guardar_raw(data)
+                    return _decorar(t)
+    return None
+
+
+def reemplazar_subdetalles(
+    subtarea_id: str,
+    items: List[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Reemplaza por completo los subdetalles de una subtarea (usado por el agente de síntesis)."""
+    with _lock:
+        data = _cargar_raw()
+        t, s = _buscar_subtarea_raw(data, subtarea_id)
+        if s is None:
+            return None
+        nuevos: List[Dict[str, Any]] = []
+        for it in (items or []):
+            if isinstance(it, dict):
+                titulo = (it.get("titulo") or "").strip()
+                nota = (it.get("nota") or "").strip()
+                completada = bool(it.get("completada"))
+            else:
+                titulo, nota, completada = str(it).strip(), "", False
+            if not titulo:
+                continue
+            nuevos.append({
+                "id": _nuevo_id("sd"),
+                "titulo": titulo,
+                "completada": completada,
+                "nota": nota,
+            })
+        s["subdetalles"] = nuevos
+        _guardar_raw(data)
+        return _decorar(t)
 
 
 # ---------------------------------------------------------------------------
